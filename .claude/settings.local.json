@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/bernd/Downloads/AskSinAnalyzerAndroid/$LOCALAPPDATA/Android/Sdk/**)",
+      "Read(//c/Users/bernd/Downloads/AskSinAnalyzerAndroid/$HOME/AppData/Local/Android/Sdk/**)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
