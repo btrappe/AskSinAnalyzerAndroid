@@ -101,12 +101,12 @@ object CsvExporter {
         val srcAddress = "%06X".format(fromAddr)
         val dstAddress = "%06X".format(toAddr)
 
-        // Parse raw bytes — strip leading ':'
+        // Parse raw bytes — strip leading ':' and skip first byte (RSSI prefix)
         val rawHex = rawField.trimStart(':')
-        val rawBytes = hexToBytes(rawHex) ?: return null
+        val allBytes = hexToBytes(rawHex) ?: return null
+        val rawBytes = if (allBytes.size > 1) allBytes.copyOfRange(1, allBytes.size) else return null
 
-        // Determine msgType from raw bytes if available (byte index 3),
-        // or fall back to the type name column
+        // Now rawBytes is the BidCoS frame: [len][cnt][flags][type][src*3][dst*3][payload...]
         val msgType = if (rawBytes.size > 3) rawBytes[3].toInt() and 0xFF else 0
 
         val payload = hexToBytes(payloadHex) ?: byteArrayOf()

@@ -65,23 +65,27 @@ data class Telegram(
 
 object MessageTypes {
     private val types = mapOf(
-        0x00 to "DeviceInfo",
-        0x01 to "Config",
-        0x02 to "AckStatus",
-        0x03 to "AES",
-        0x10 to "Information",
-        0x11 to "Set",
-        0x12 to "Get",
-        0x3E to "TimeRequest",
-        0x3F to "TimeResponse",
-        0x40 to "RemoteEvent",
-        0x41 to "SensorData",
-        0x53 to "SensorEvent",
-        0x58 to "ClimateEvent",
-        0x70 to "WeatherEvent",
-        0xCA to "ChannelToggle"
+        0x00 to "DEVINFO",
+        0x01 to "CONFIG",
+        0x02 to "RESPONSE",
+        0x03 to "RESPONSE_AES",
+        0x04 to "KEY_EXCHANGE",
+        0x10 to "INFO",
+        0x11 to "ACTION",
+        0x12 to "GET",
+        0x3E to "TIMESTAMP",
+        0x3F to "TIMESTAMP",
+        0x40 to "REMOTE_EVENT",
+        0x41 to "SENSOR_DATA",
+        0x53 to "SENSOR_EVENT",
+        0x58 to "CLIMATE_EVENT",
+        0x70 to "WEATHER_EVENT",
+        0xCA to "SET_TEAM"
     )
-    fun name(type: Int) = types[type] ?: "0x%02X".format(type)
+    fun name(type: Int): String {
+        val hex = "0x%02X".format(type)
+        return types[type]?.let { "$it ($hex)" } ?: hex
+    }
 }
 
 /**

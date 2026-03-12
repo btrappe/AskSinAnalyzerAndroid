@@ -21,8 +21,8 @@ val AccentDim    = Color(0xFF00A884)
 val Warning      = Color(0xFFFFB830)   // amber — duty cycle warning
 val Danger       = Color(0xFFFF4757)   // red — RSSI bad / error
 val TextPrimary  = Color(0xFFE8ECF4)
-val TextSecondary= Color(0xFF7A8399)
-val TextMuted    = Color(0xFF3D4557)
+val TextSecondary= Color(0xFF9BA3B5)
+val TextMuted    = Color(0xFF6B7590)
 
 val RssiGood     = Color(0xFF00E5B4)
 val RssiMed      = Color(0xFFFFB830)
