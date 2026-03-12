@@ -32,11 +32,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug -PVERSION_PATCH=${{ github.run_number }} --stacktrace
 
       - name: Build release APK
         if: inputs.release
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease -PVERSION_PATCH=${{ github.run_number }} --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -76,15 +76,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug -PVERSION_PATCH=${{ github.run_number }}
 
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -PVERSION_PATCH=${{ github.run_number }}
 
       - name: Get version name
         id: version
         run: |
-          VERSION=$(./gradlew -q :app:printVersionName)
+          VERSION=$(./gradlew -q :app:printVersionName -PVERSION_PATCH=${{ github.run_number }})
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
