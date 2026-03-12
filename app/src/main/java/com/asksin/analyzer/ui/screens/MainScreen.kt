@@ -135,7 +135,7 @@ fun MainScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(telegrams, key = { it.id }) { t ->
-                    TelegramRow(telegram = t, onClick = { onTelegramClick(t) })
+                    TelegramRow(telegram = t, onClick = { onTelegramClick(t) }, onAddressClick = onFilterChange)
                 }
             }
         }

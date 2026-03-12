@@ -108,7 +108,7 @@ fun DutyCycleBadge(percent: Float, modifier: Modifier = Modifier) {
 
 /** Single telegram row card */
 @Composable
-fun TelegramRow(telegram: Telegram, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String) -> Unit = {}, modifier: Modifier = Modifier) {
     Box(
         modifier
             .fillMaxWidth()
@@ -142,11 +142,11 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, modifier: Modifier = Mo
 
             // Address row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AddressChip(telegram.srcAddress, true)
+                AddressChip(telegram.srcAddress, true) { onAddressClick(telegram.srcAddress) }
                 Spacer(Modifier.width(6.dp))
                 Text("→", color = TextMuted, fontSize = 10.sp)
                 Spacer(Modifier.width(6.dp))
-                AddressChip(telegram.dstAddress, false)
+                AddressChip(telegram.dstAddress, false) { onAddressClick(telegram.dstAddress) }
                 Spacer(Modifier.weight(1f))
                 // LQI dot
                 val lqiColor = if (telegram.lqiGood) RssiGood else Warning
@@ -180,13 +180,14 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, modifier: Modifier = Mo
 }
 
 @Composable
-fun AddressChip(address: String, isSource: Boolean) {
+fun AddressChip(address: String, isSource: Boolean, onClick: () -> Unit = {}) {
     val bg = if (isSource) Accent.copy(alpha = 0.12f) else AccentDim.copy(alpha = 0.08f)
     val fg = if (isSource) Accent else AccentDim
     Box(
         Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
+            .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(address, color = fg, fontSize = 10.sp, fontFamily = MonoFont, fontWeight = FontWeight.Bold)
