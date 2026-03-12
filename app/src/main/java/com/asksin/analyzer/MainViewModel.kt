@@ -1,8 +1,10 @@
 package com.asksin.analyzer
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.asksin.analyzer.data.CsvExporter
 import com.asksin.analyzer.data.TelegramParser
 import com.asksin.analyzer.model.DeviceStats
 import com.asksin.analyzer.model.NoiseSample
@@ -83,6 +85,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _telegrams.value = emptyList()
         _deviceStats.value = emptyMap()
         _noiseSamples.value = emptyList()
+    }
+
+    fun exportCsv(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().contentResolver.openOutputStream(uri)?.use { out ->
+                    CsvExporter.export(_telegrams.value, out)
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun importCsv(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                    val imported = CsvExporter.import(input)
+                    if (imported.isNotEmpty()) {
+                        _telegrams.value = imported
+                        _deviceStats.value = emptyMap()
+                        imported.forEach { updateDeviceStats(it) }
+                    }
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     private fun addTelegram(t: Telegram) {

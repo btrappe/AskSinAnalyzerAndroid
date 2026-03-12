@@ -37,7 +37,9 @@ fun MainScreen(
     onDisconnect: () -> Unit,
     onClear: () -> Unit,
     onRefreshDevices: () -> Unit,
-    onTelegramClick: (Telegram) -> Unit
+    onTelegramClick: (Telegram) -> Unit,
+    onExport: () -> Unit = {},
+    onImport: () -> Unit = {}
 ) {
     var showDeviceDialog by remember { mutableStateOf(false) }
 
@@ -51,7 +53,9 @@ fun MainScreen(
                 showDeviceDialog = true
             },
             onDisconnect = onDisconnect,
-            onClear = onClear
+            onClear = onClear,
+            onExport = onExport,
+            onImport = onImport
         )
 
         // ── Noise chart ──────────────────────────────────────────────────────
@@ -156,7 +160,9 @@ private fun TopBar(
     connectionState: ConnectionState,
     onConnectClick: () -> Unit,
     onDisconnect: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit
 ) {
     val isConnected = connectionState is ConnectionState.Connected
     val label = when (connectionState) {
@@ -165,6 +171,7 @@ private fun TopBar(
         is ConnectionState.Error -> connectionState.message
         else -> "Disconnected"
     }
+    var showMenu by remember { mutableStateOf(false) }
 
     Row(
         Modifier
@@ -192,8 +199,32 @@ private fun TopBar(
         ConnectionIndicator(isConnected, label, Modifier.weight(1f))
 
         // Actions
-        IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.DeleteOutline, "Clear", tint = TextMuted, modifier = Modifier.size(18.dp))
+        Box {
+            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.MoreVert, "Menu", tint = TextMuted, modifier = Modifier.size(18.dp))
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                containerColor = Surface
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Export CSV", color = TextPrimary, fontSize = 13.sp) },
+                    onClick = { showMenu = false; onExport() },
+                    leadingIcon = { Icon(Icons.Default.FileDownload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Import CSV", color = TextPrimary, fontSize = 13.sp) },
+                    onClick = { showMenu = false; onImport() },
+                    leadingIcon = { Icon(Icons.Default.FileUpload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                )
+                HorizontalDivider(color = Border)
+                DropdownMenuItem(
+                    text = { Text("Clear", color = TextPrimary, fontSize = 13.sp) },
+                    onClick = { showMenu = false; onClear() },
+                    leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                )
+            }
         }
         if (isConnected) {
             IconButton(onClick = onDisconnect, modifier = Modifier.size(36.dp)) {

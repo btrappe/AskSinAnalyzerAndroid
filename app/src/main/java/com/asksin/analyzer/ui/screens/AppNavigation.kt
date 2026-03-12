@@ -1,5 +1,7 @@
 package com.asksin.analyzer.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -17,6 +19,9 @@ import androidx.compose.ui.unit.sp
 import com.asksin.analyzer.MainViewModel
 import com.asksin.analyzer.model.Telegram
 import com.asksin.analyzer.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     TELEGRAMS("Telegrams", Icons.Default.List),
@@ -35,6 +40,14 @@ fun AppNavigation(viewModel: MainViewModel) {
 
     var selectedTab by remember { mutableStateOf(Tab.TELEGRAMS) }
     var detailTelegram by remember { mutableStateOf<Telegram?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let { viewModel.exportCsv(it) } }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importCsv(it) } }
 
     // Show detail overlay if a telegram is selected
     detailTelegram?.let { t ->
@@ -80,7 +93,14 @@ fun AppNavigation(viewModel: MainViewModel) {
                     onDisconnect = viewModel::disconnect,
                     onClear = viewModel::clearTelegrams,
                     onRefreshDevices = viewModel::refreshDevices,
-                    onTelegramClick = { detailTelegram = it }
+                    onTelegramClick = { detailTelegram = it },
+                    onExport = {
+                        val ts = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date())
+                        exportLauncher.launch("TelegramsXS_$ts.csv")
+                    },
+                    onImport = {
+                        importLauncher.launch(arrayOf("text/*", "text/csv", "application/octet-stream"))
+                    }
                 )
                 Tab.DEVICES -> DeviceStatsScreen(stats = deviceStats)
             }
