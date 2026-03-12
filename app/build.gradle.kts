@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val major = property("VERSION_MAJOR").toString().toInt()
+val minor = property("VERSION_MINOR").toString().toInt()
+val patch = property("VERSION_PATCH").toString().toInt()
+
 android {
     namespace = "com.asksin.analyzer"
     compileSdk = 34
@@ -12,8 +16,8 @@ android {
         applicationId = "com.asksin.analyzer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = major * 10000 + minor * 100 + patch
+        versionName = "$major.$minor.$patch"
     }
 
     signingConfigs {
@@ -40,9 +44,13 @@ android {
     applicationVariants.all {
         outputs.all {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
-                .outputFileName = "asksinanalyzer-${buildType.name}.apk"
+                .outputFileName = "asksinanalyzer-$major.$minor.$patch-${buildType.name}.apk"
         }
     }
+}
+
+tasks.register("printVersionName") {
+    doLast { println(android.defaultConfig.versionName) }
 }
 
 dependencies {

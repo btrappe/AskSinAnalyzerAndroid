@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: asksinanalyzer-debug
-          path: app/build/outputs/apk/debug/asksinanalyzer-debug.apk
+          path: app/build/outputs/apk/debug/asksinanalyzer-*-debug.apk
           retention-days: 30
 
       - name: Upload release APK
@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: asksinanalyzer-release
-          path: app/build/outputs/apk/release/asksinanalyzer-release.apk
+          path: app/build/outputs/apk/release/asksinanalyzer-*-release.apk
           retention-days: 30
 
   release:
@@ -84,30 +84,30 @@ jobs:
       - name: Get version name
         id: version
         run: |
-          VERSION=$(./gradlew -q printVersionName 2>/dev/null || echo "1.0.0")
+          VERSION=$(./gradlew -q :app:printVersionName)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION-$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release and upload APKs
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: "AskSin Analyzer ${{ steps.version.outputs.tag }}"
+          name: "AskSin Analyzer ${{ steps.version.outputs.version }}"
           body: |
-            ## AskSin Analyzer – Android APK
+            ## AskSin Analyzer v${{ steps.version.outputs.version }}
 
             Native Android app for analysing HomeMatic BidCoS radio telegrams
             via CC1101 + ATMega328P sniffer over USB OTG.
 
             ### Install
-            1. Download `asksinanalyzer-release.apk` (or `asksinanalyzer-debug.apk`) below
+            1. Download the APK below
             2. On your Android device: *Settings → Security → Install unknown apps* → allow your browser/file manager
             3. Open the APK file to install
 
             ### Built from commit
             ${{ github.sha }}
           files: |
-            app/build/outputs/apk/debug/asksinanalyzer-debug.apk
-            app/build/outputs/apk/release/asksinanalyzer-release.apk
+            app/build/outputs/apk/debug/asksinanalyzer-*-debug.apk
+            app/build/outputs/apk/release/asksinanalyzer-*-release.apk
           draft: false
           prerelease: false
