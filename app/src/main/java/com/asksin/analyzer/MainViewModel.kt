@@ -101,7 +101,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
-                    val imported = CsvExporter.import(input)
+                    val imported = CsvExporter.importCsv(input)
                     if (imported.isNotEmpty()) {
                         _telegrams.value = imported
                         _deviceStats.value = emptyMap()

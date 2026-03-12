@@ -67,7 +67,7 @@ object CsvExporter {
 
     // ── Import ───────────────────────────────────────────────────────────────
 
-    fun import(input: InputStream): List<Telegram> {
+    fun importCsv(input: InputStream): List<Telegram> {
         val telegrams = mutableListOf<Telegram>()
         BufferedReader(InputStreamReader(input)).use { reader ->
             val header = reader.readLine() ?: return emptyList()
