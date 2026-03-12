@@ -206,7 +206,7 @@ private fun TopBar(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                containerColor = Surface
+                modifier = Modifier.background(Surface)
             ) {
                 DropdownMenuItem(
                     text = { Text("Export CSV", color = TextPrimary, fontSize = 13.sp) },
