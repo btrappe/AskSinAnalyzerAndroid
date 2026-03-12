@@ -5,8 +5,13 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  # Also allows manual trigger from the Actions tab
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a release with APKs'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -29,16 +34,27 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK artifact
+      - name: Build release APK
+        if: inputs.release
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: AskSinAnalyzer-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: asksinanalyzer-debug
+          path: app/build/outputs/apk/debug/asksinanalyzer-debug.apk
+          retention-days: 30
+
+      - name: Upload release APK
+        if: inputs.release
+        uses: actions/upload-artifact@v4
+        with:
+          name: asksinanalyzer-release
+          path: app/build/outputs/apk/release/asksinanalyzer-release.apk
           retention-days: 30
 
   release:
-    # Only runs on push to main/master (not on PRs)
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: inputs.release
     needs: build
     runs-on: ubuntu-latest
 
@@ -62,6 +78,9 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug
 
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
       - name: Get version name
         id: version
         run: |
@@ -69,7 +88,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION-$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release and upload APK
+      - name: Create GitHub Release and upload APKs
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -81,12 +100,14 @@ jobs:
             via CC1101 + ATMega328P sniffer over USB OTG.
 
             ### Install
-            1. Download `app-debug.apk` below
+            1. Download `asksinanalyzer-release.apk` (or `asksinanalyzer-debug.apk`) below
             2. On your Android device: *Settings → Security → Install unknown apps* → allow your browser/file manager
             3. Open the APK file to install
 
             ### Built from commit
             ${{ github.sha }}
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            app/build/outputs/apk/debug/asksinanalyzer-debug.apk
+            app/build/outputs/apk/release/asksinanalyzer-release.apk
           draft: false
           prerelease: false
