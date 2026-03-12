@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,9 +44,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _filter = MutableStateFlow("")
     val filter: StateFlow<String> = _filter.asStateFlow()
 
-    val filteredTelegrams: StateFlow<List<Telegram>> = _telegrams
-        .map { list ->
-            val q = _filter.value.trim().uppercase()
+    val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter) { list, f ->
+            val q = f.trim().uppercase()
             if (q.isEmpty()) list else list.filter {
                 it.srcAddress.contains(q) ||
                 it.dstAddress.contains(q) ||
