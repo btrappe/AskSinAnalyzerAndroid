@@ -3,7 +3,8 @@
     "allow": [
       "Read(//c/Users/bernd/Downloads/AskSinAnalyzerAndroid/$LOCALAPPDATA/Android/Sdk/**)",
       "Read(//c/Users/bernd/Downloads/AskSinAnalyzerAndroid/$HOME/AppData/Local/Android/Sdk/**)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git -C \"C:/Users/bernd/Downloads/AskSinAnalyzerAndroid\" check-ignore gradle/wrapper/gradle-wrapper.jar)"
     ]
   }
 }
