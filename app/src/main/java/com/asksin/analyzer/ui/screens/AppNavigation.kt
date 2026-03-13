@@ -71,6 +71,7 @@ fun AppNavigation(viewModel: MainViewModel) {
 
     // Show device names management screen
     if (showDeviceNames) {
+        BackHandler { showDeviceNames = false }
         DeviceNamesScreen(
             deviceNames = deviceNames,
             ccuFetchState = ccuFetchState,
@@ -90,6 +91,7 @@ fun AppNavigation(viewModel: MainViewModel) {
 
     // Show detail overlay if a telegram is selected
     detailTelegram?.let { t ->
+        BackHandler { detailTelegram = null }
         TelegramDetailScreen(telegram = t, onBack = { detailTelegram = null }, nameResolver = nameResolver)
         return
     }
