@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.asksin.analyzer.BuildConfig
 import com.asksin.analyzer.model.NoiseSample
 import com.asksin.analyzer.model.Telegram
+import com.asksin.analyzer.model.TelegramListItem
 import com.asksin.analyzer.serial.ConnectionState
 import com.asksin.analyzer.ui.components.*
 import com.asksin.analyzer.ui.theme.*
@@ -30,6 +31,7 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver
 fun MainScreen(
     connectionState: ConnectionState,
     telegrams: List<Telegram>,
+    groupedItems: List<TelegramListItem>,
     noiseSamples: List<NoiseSample>,
     availableDevices: List<UsbSerialDriver>,
     filter: String,
@@ -40,6 +42,7 @@ fun MainScreen(
     onClear: () -> Unit,
     onRefreshDevices: () -> Unit,
     onTelegramClick: (Telegram) -> Unit,
+    onToggleGroup: (Long) -> Unit = {},
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
     onShowDeviceNames: () -> Unit = {}
@@ -113,11 +116,13 @@ fun MainScreen(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("${telegrams.size} telegrams", color = TextMuted, fontSize = 10.sp)
+            val seqCount = groupedItems.count { it is TelegramListItem.GroupHeader }
+            val countText = if (seqCount > 0) "${telegrams.size} telegrams ($seqCount sequences)" else "${telegrams.size} telegrams"
+            Text(countText, color = TextMuted, fontSize = 10.sp)
         }
 
         // ── Telegram list ────────────────────────────────────────────────────
-        if (telegrams.isEmpty()) {
+        if (groupedItems.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Radio, null, tint = TextMuted, modifier = Modifier.size(48.dp))
@@ -138,8 +143,34 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(telegrams, key = { it.id }) { t ->
-                    TelegramRow(telegram = t, onClick = { onTelegramClick(t) }, onAddressClick = onFilterChange, nameResolver = nameResolver)
+                items(groupedItems, key = { item ->
+                    when (item) {
+                        is TelegramListItem.Single -> item.telegram.id
+                        is TelegramListItem.GroupHeader -> -item.sequence.id
+                        is TelegramListItem.GroupMember -> item.telegram.id
+                    }
+                }) { item ->
+                    when (item) {
+                        is TelegramListItem.Single ->
+                            TelegramRow(telegram = item.telegram, onClick = { onTelegramClick(item.telegram) }, onAddressClick = onFilterChange, nameResolver = nameResolver)
+                        is TelegramListItem.GroupHeader ->
+                            SequenceGroupHeader(
+                                sequence = item.sequence,
+                                telegrams = item.telegrams,
+                                expanded = item.expanded,
+                                nameResolver = nameResolver,
+                                onToggle = { onToggleGroup(item.sequence.id) },
+                                onClick = { onTelegramClick(item.telegrams.first()) }
+                            )
+                        is TelegramListItem.GroupMember ->
+                            SequenceGroupMember(
+                                telegram = item.telegram,
+                                sequence = item.sequence,
+                                isLast = item.isLast,
+                                nameResolver = nameResolver,
+                                onClick = { onTelegramClick(item.telegram) }
+                            )
+                    }
                 }
             }
         }

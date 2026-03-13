@@ -7,11 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.asksin.analyzer.data.CcuClient
 import com.asksin.analyzer.data.CsvExporter
 import com.asksin.analyzer.data.DeviceRegistry
+import com.asksin.analyzer.data.SequenceDetector
 import com.asksin.analyzer.data.TelegramParser
 import com.asksin.analyzer.model.DeviceInfo
 import com.asksin.analyzer.model.DeviceStats
 import com.asksin.analyzer.model.NoiseSample
 import com.asksin.analyzer.model.Telegram
+import com.asksin.analyzer.model.TelegramListItem
+import com.asksin.analyzer.model.TelegramSequence
 import com.asksin.analyzer.serial.ConnectionState
 import com.asksin.analyzer.serial.UsbSerialManager
 import com.hoho.android.usbserial.driver.UsbSerialDriver
@@ -34,6 +37,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val usbManager = UsbSerialManager(app)
     private val registry = DeviceRegistry(app)
     private val ccuClient = CcuClient()
+    private val sequenceDetector = SequenceDetector()
 
     val connectionState: StateFlow<ConnectionState> = usbManager.connectionState
 
@@ -178,6 +182,70 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // ── Sequence grouping ──────────────────────────────────────────────────
+
+    private val _sequences = MutableStateFlow<Map<Long, TelegramSequence>>(emptyMap())
+    private val _expandedGroups = MutableStateFlow<Set<Long>>(emptySet())
+
+    val groupedTelegrams: StateFlow<List<TelegramListItem>> =
+        combine(filteredTelegrams, _sequences, _expandedGroups) { telegrams, seqs, expanded ->
+            buildGroupedList(telegrams, seqs, expanded)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun toggleGroup(sequenceId: Long) {
+        val current = _expandedGroups.value.toMutableSet()
+        if (sequenceId in current) current.remove(sequenceId) else current.add(sequenceId)
+        _expandedGroups.value = current
+    }
+
+    fun getSequenceFor(telegramId: Long): Pair<TelegramSequence, List<Telegram>>? {
+        val seqId = sequenceDetector.telegramToSequence[telegramId] ?: return null
+        val seq = _sequences.value[seqId] ?: return null
+        val telegrams = seq.telegramIds.mapNotNull { id -> _telegrams.value.find { it.id == id } }
+        return Pair(seq, telegrams)
+    }
+
+    private fun buildGroupedList(
+        telegrams: List<Telegram>,
+        sequences: Map<Long, TelegramSequence>,
+        expanded: Set<Long>
+    ): List<TelegramListItem> {
+        val telegramToSeq = sequenceDetector.telegramToSequence
+        val result = mutableListOf<TelegramListItem>()
+        val emittedSequences = mutableSetOf<Long>()
+
+        for (t in telegrams) {
+            val seqId = telegramToSeq[t.id]
+            if (seqId == null || seqId !in sequences) {
+                result.add(TelegramListItem.Single(t))
+                continue
+            }
+
+            if (seqId in emittedSequences) continue  // already emitted as part of a group
+            emittedSequences.add(seqId)
+
+            val seq = sequences[seqId]!!
+            val seqTelegrams = seq.telegramIds.mapNotNull { id ->
+                telegrams.find { it.id == id }
+            }
+            if (seqTelegrams.isEmpty()) continue
+
+            val isExpanded = seqId in expanded
+            result.add(TelegramListItem.GroupHeader(seq, seqTelegrams, isExpanded))
+
+            if (isExpanded) {
+                seqTelegrams.forEachIndexed { idx, member ->
+                    result.add(TelegramListItem.GroupMember(member, seq, idx == seqTelegrams.lastIndex))
+                }
+            }
+        }
+        return result
+    }
+
+    private fun updateSequences() {
+        _sequences.value = sequenceDetector.allSequences()
+    }
+
     val availableDevices: StateFlow<List<UsbSerialDriver>> = MutableStateFlow(emptyList())
 
     init {
@@ -211,6 +279,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _telegrams.value = emptyList()
         _deviceStats.value = emptyMap()
         _noiseSamples.value = emptyList()
+        sequenceDetector.clear()
+        _sequences.value = emptyMap()
+        _expandedGroups.value = emptySet()
     }
 
     fun exportCsv(uri: Uri) {
@@ -232,6 +303,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         _telegrams.value = imported
                         _deviceStats.value = emptyMap()
                         imported.forEach { updateDeviceStats(it) }
+                        sequenceDetector.detectAll(imported)
+                        updateSequences()
                     }
                 }
             } catch (_: Exception) { }
@@ -244,6 +317,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (current.size > MAX_TELEGRAMS) current.removeAt(current.size - 1)
         _telegrams.value = current
         updateDeviceStats(t)
+        sequenceDetector.ingest(t)
+        updateSequences()
     }
 
     private fun addNoiseSample(s: NoiseSample) {

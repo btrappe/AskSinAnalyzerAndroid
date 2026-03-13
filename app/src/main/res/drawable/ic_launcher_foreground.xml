@@ -4,10 +4,113 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Central antenna/sniffer node -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,30 L54,54 L72,54 L72,58 L50,58 L50,30 Z"/>
+        android:pathData="M54,44 L54,62"
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"/>
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,28 C40.745,28 30,38.745 30,52 C30,65.255 40.745,76 54,76 C67.255,76 78,65.255 78,52 C78,38.745 67.255,28 54,28 Z M54,72 C42.954,72 34,63.046 34,52 C34,40.954 42.954,32 54,32 C65.046,32 74,40.954 74,52 C74,63.046 65.046,72 54,72 Z"/>
+        android:pathData="M54,40 m-4,0 a4,4 0,1 1,8 0 a4,4 0,1 1,-8 0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,62 L60,62 L57,68 L51,68 Z"/>
+
+    <!-- Radio waves left (from left device toward center) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M38,46 Q42,52 38,58"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M33,42 Q39,52 33,62"/>
+
+    <!-- Radio waves right (from right device toward center) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M70,46 Q66,52 70,58"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M75,42 Q69,52 75,62"/>
+
+    <!-- Device node top-left -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,36 m-3.5,0 a3.5,3.5 0,1 1,7 0 a3.5,3.5 0,1 1,-7 0"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M28,32 L28,28"/>
+
+    <!-- Device node bottom-left -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,68 m-3.5,0 a3.5,3.5 0,1 1,7 0 a3.5,3.5 0,1 1,-7 0"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M28,72 L28,76"/>
+
+    <!-- Device node top-right -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,36 m-3.5,0 a3.5,3.5 0,1 1,7 0 a3.5,3.5 0,1 1,-7 0"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M80,32 L80,28"/>
+
+    <!-- Device node bottom-right -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M80,68 m-3.5,0 a3.5,3.5 0,1 1,7 0 a3.5,3.5 0,1 1,-7 0"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M80,72 L80,76"/>
+
+    <!-- Mesh lines connecting outer nodes (faint) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M31,37 L77,37"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M31,67 L77,67"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M28,39.5 L28,64.5"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M80,39.5 L80,64.5"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M31,38 L77,66"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M31,66 L77,38"/>
 </vector>

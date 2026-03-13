@@ -38,6 +38,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 fun AppNavigation(viewModel: MainViewModel) {
     val connectionState by viewModel.connectionState.collectAsState()
     val telegrams by viewModel.filteredTelegrams.collectAsState()
+    val groupedItems by viewModel.groupedTelegrams.collectAsState()
     val allTelegrams by viewModel.telegrams.collectAsState()
     val noiseSamples by viewModel.noiseSamples.collectAsState()
     val deviceStats by viewModel.deviceStats.collectAsState()
@@ -140,6 +141,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                 Tab.TELEGRAMS -> MainScreen(
                     connectionState = connectionState,
                     telegrams = telegrams,
+                    groupedItems = groupedItems,
                     noiseSamples = noiseSamples,
                     availableDevices = availableDevices,
                     filter = filter,
@@ -150,6 +152,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                     onClear = viewModel::clearTelegrams,
                     onRefreshDevices = viewModel::refreshDevices,
                     onTelegramClick = { detailTelegram = it },
+                    onToggleGroup = viewModel::toggleGroup,
                     onExport = {
                         val ts = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date())
                         exportLauncher.launch("TelegramsXS_$ts.csv")

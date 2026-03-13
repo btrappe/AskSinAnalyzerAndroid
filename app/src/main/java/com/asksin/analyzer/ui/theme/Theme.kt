@@ -28,6 +28,18 @@ val RssiGood     = Color(0xFF00E5B4)
 val RssiMed      = Color(0xFFFFB830)
 val RssiBad      = Color(0xFFFF4757)
 
+// Sequence type colors
+val SeqPairing       = Color(0xFFF06292)
+val SeqConfigRead    = Color(0xFFFFB74D)
+val SeqConfigWrite   = Color(0xFFFF8A65)
+val SeqAes           = Color(0xFFE57373)
+val SeqKeyExchange   = Color(0xFFBA68C8)
+val SeqCommandStatus = Color(0xFF81C784)
+val SeqGetInfo       = Color(0xFFAED581)
+val SeqEventAck      = Color(0xFF4DB6AC)
+val SeqGenericBidi   = Color(0xFF4FC3F7)
+val SeqConnector     = Color(0xFF3A4560)
+
 private val DarkColors = darkColorScheme(
     primary          = Accent,
     onPrimary        = Background,
