@@ -19,6 +19,16 @@ import kotlin.math.roundToInt
  * The hex_data field is the raw BidCoS packet:
  *   [LEN][CNT][FLAGS][TYPE][SRC0][SRC1][SRC2][DST0][DST1][DST2][PAYLOAD...]
  */
+    data class DecodedFrame(
+        val msgLen: Int,
+        val msgCounter: Int,
+        val flags: Int,
+        val msgType: Int,
+        val srcAddress: String,
+        val dstAddress: String,
+        val payload: ByteArray
+    )
+
 object TelegramParser {
 
     private val TELEGRAM_REGEX = Regex(
@@ -34,6 +44,27 @@ object TelegramParser {
         object Invalid : ParseResult()
     }
 
+    fun decodeBidCosFrame(rawBytes: ByteArray): DecodedFrame? {
+        if (rawBytes.size < 10) return null
+        return DecodedFrame(
+            msgLen     = rawBytes[0].toInt() and 0xFF,
+            msgCounter = rawBytes[1].toInt() and 0xFF,
+            flags      = rawBytes[2].toInt() and 0xFF,
+            msgType    = rawBytes[3].toInt() and 0xFF,
+            srcAddress = "%02X%02X%02X".format(
+                rawBytes[4].toInt() and 0xFF,
+                rawBytes[5].toInt() and 0xFF,
+                rawBytes[6].toInt() and 0xFF
+            ),
+            dstAddress = "%02X%02X%02X".format(
+                rawBytes[7].toInt() and 0xFF,
+                rawBytes[8].toInt() and 0xFF,
+                rawBytes[9].toInt() and 0xFF
+            ),
+            payload = if (rawBytes.size > 10) rawBytes.copyOfRange(10, rawBytes.size) else byteArrayOf()
+        )
+    }
+
     fun parse(line: String): ParseResult {
         val trimmed = line.trim()
 
@@ -44,39 +75,23 @@ object TelegramParser {
             val hex = match.groupValues[4]
 
             val bytes = hexToBytes(hex) ?: return ParseResult.Invalid
-            if (bytes.size < 10) return ParseResult.Invalid  // minimum valid BidCoS
+            val frame = decodeBidCosFrame(bytes) ?: return ParseResult.Invalid
 
             val rssiDbm = convertRssi(rssiRaw)
             val lqi = lqiRaw and 0x7F  // 7-bit value
-
-            val msgLen     = bytes[0].toInt() and 0xFF
-            val msgCounter = bytes[1].toInt() and 0xFF
-            val flags      = bytes[2].toInt() and 0xFF
-            val msgType    = bytes[3].toInt() and 0xFF
-            val srcAddress = "%02X%02X%02X".format(
-                bytes[4].toInt() and 0xFF,
-                bytes[5].toInt() and 0xFF,
-                bytes[6].toInt() and 0xFF
-            )
-            val dstAddress = "%02X%02X%02X".format(
-                bytes[7].toInt() and 0xFF,
-                bytes[8].toInt() and 0xFF,
-                bytes[9].toInt() and 0xFF
-            )
-            val payload = if (bytes.size > 10) bytes.copyOfRange(10, bytes.size) else byteArrayOf()
 
             val telegram = Telegram(
                 timestamp = System.currentTimeMillis(),
                 rssi = rssiDbm,
                 lqi = lqi,
                 rawBytes = bytes,
-                msgLen = msgLen,
-                msgCounter = msgCounter,
-                flags = flags,
-                msgType = msgType,
-                srcAddress = srcAddress,
-                dstAddress = dstAddress,
-                payload = payload
+                msgLen = frame.msgLen,
+                msgCounter = frame.msgCounter,
+                flags = frame.flags,
+                msgType = frame.msgType,
+                srcAddress = frame.srcAddress,
+                dstAddress = frame.dstAddress,
+                payload = frame.payload
             )
             return ParseResult.TelegramResult(telegram)
         }

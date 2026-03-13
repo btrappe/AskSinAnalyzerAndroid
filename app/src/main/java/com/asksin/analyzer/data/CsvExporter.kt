@@ -88,28 +88,16 @@ object CsvExporter {
 
         val timestamp = parts[0].toLongOrNull() ?: return null
         val rssi = parts[2].toIntOrNull() ?: return null
-        val msgLen = parts[3].toIntOrNull() ?: return null
-        val msgCounter = parts[4].toIntOrNull() ?: return null
         val dutyCycle = parts[5].toFloatOrNull() ?: 0f
-        val flagsStr = parts[6]
-        val fromAddr = parts[8].toLongOrNull() ?: return null
-        val toAddr = parts[9].toLongOrNull() ?: return null
-        val payloadHex = parts[16]
         val rawField = parts[17]
-
-        val flags = parseFlags(flagsStr)
-        val srcAddress = "%06X".format(fromAddr)
-        val dstAddress = "%06X".format(toAddr)
 
         // Parse raw bytes — strip leading ':' and skip first byte (RSSI prefix)
         val rawHex = rawField.trimStart(':')
         val allBytes = hexToBytes(rawHex) ?: return null
         val rawBytes = if (allBytes.size > 1) allBytes.copyOfRange(1, allBytes.size) else return null
 
-        // Now rawBytes is the BidCoS frame: [len][cnt][flags][type][src*3][dst*3][payload...]
-        val msgType = if (rawBytes.size > 3) rawBytes[3].toInt() and 0xFF else 0
-
-        val payload = hexToBytes(payloadHex) ?: byteArrayOf()
+        // Decode all BidCoS fields from raw bytes (same logic as live USB path)
+        val frame = TelegramParser.decodeBidCosFrame(rawBytes) ?: return null
 
         return Telegram(
             id = timestamp,
@@ -117,32 +105,15 @@ object CsvExporter {
             rssi = rssi,
             lqi = 0,
             rawBytes = rawBytes,
-            msgLen = msgLen,
-            msgCounter = msgCounter,
-            flags = flags,
-            msgType = msgType,
-            srcAddress = srcAddress,
-            dstAddress = dstAddress,
-            payload = payload,
+            msgLen = frame.msgLen,
+            msgCounter = frame.msgCounter,
+            flags = frame.flags,
+            msgType = frame.msgType,
+            srcAddress = frame.srcAddress,
+            dstAddress = frame.dstAddress,
+            payload = frame.payload,
             dutyCycle = dutyCycle
         )
-    }
-
-    private fun parseFlags(flagsStr: String): Int {
-        if (flagsStr.isBlank()) return 0
-        var flags = 0
-        for (part in flagsStr.split(",")) {
-            when (part.trim().uppercase()) {
-                "BCAST" -> flags = flags or 0x04
-                "BIDI" -> flags = flags or 0x20
-                "RPTEN" -> flags = flags or 0x80
-                "RPTED" -> flags = flags or 0x40
-                "BURST" -> flags = flags or 0x10
-                "WKMEUP", "WAKEMEUP" -> flags = flags or 0x02
-                "WKUP", "WAKEUP" -> flags = flags or 0x01
-            }
-        }
-        return flags
     }
 
     private fun hexToBytes(hex: String): ByteArray? {
