@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asksin.analyzer.BuildConfig
 import com.asksin.analyzer.model.NoiseSample
 import com.asksin.analyzer.model.Telegram
 import com.asksin.analyzer.serial.ConnectionState
@@ -232,6 +233,13 @@ private fun TopBar(
                     text = { Text("Clear", color = TextPrimary, fontSize = 13.sp) },
                     onClick = { showMenu = false; onClear() },
                     leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                )
+                HorizontalDivider(color = Border)
+                DropdownMenuItem(
+                    text = { Text("v${BuildConfig.VERSION_NAME}", color = TextMuted, fontSize = 11.sp) },
+                    onClick = {},
+                    enabled = false,
+                    leadingIcon = { Icon(Icons.Default.Info, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
                 )
             }
         }

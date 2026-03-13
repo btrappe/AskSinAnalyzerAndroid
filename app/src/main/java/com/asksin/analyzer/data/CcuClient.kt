@@ -27,6 +27,13 @@ class CcuClient {
             val rfDevices = fetchRfAddresses(ccuIp)
             val names = fetchDeviceNames(ccuIp)
 
+            if (rfDevices.isEmpty() && names.isEmpty()) {
+                return@withContext FetchResult(error = "Both XML-RPC (port 2001) and ReGaHSS (port 8181) returned 0 devices. Check that BidCos-RF is running on the CCU.")
+            }
+            if (rfDevices.isEmpty()) {
+                return@withContext FetchResult(error = "XML-RPC on port 2001 returned 0 RF devices (ReGaHSS found ${names.size} names). Check BidCos-RF interface.")
+            }
+
             val devices = mutableMapOf<String, DeviceInfo>()
             for ((serial, rf) in rfDevices) {
                 val name = names[serial] ?: serial
@@ -124,8 +131,8 @@ class CcuClient {
                     when (parser.name) {
                         "struct" -> {
                             structDepth++
-                            if (structDepth == 2) {
-                                // Device struct (depth 1 is the outer array value struct)
+                            if (structDepth == 1) {
+                                // Device struct — directly inside <array><data><value>
                                 inStruct = true
                                 address = null
                                 rfAddress = null
@@ -159,7 +166,7 @@ class CcuClient {
                 XmlPullParser.END_TAG -> {
                     when (parser.name) {
                         "struct" -> {
-                            if (structDepth == 2 && inStruct) {
+                            if (structDepth == 1 && inStruct) {
                                 // End of a device struct — save if it's a parent device
                                 val addr = address
                                 val rf = rfAddress
