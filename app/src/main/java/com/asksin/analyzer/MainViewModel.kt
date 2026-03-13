@@ -117,6 +117,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         registry.clear()
     }
 
+    fun exportDeviceNames(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().contentResolver.openOutputStream(uri)?.use { out ->
+                    out.bufferedWriter().use { w ->
+                        w.write(registry.toJson(_deviceNames.value))
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun importDeviceNames(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                    val json = input.bufferedReader().readText()
+                    val imported = registry.fromJson(json)
+                    if (imported.isNotEmpty()) {
+                        val merged = _deviceNames.value.toMutableMap()
+                        merged.putAll(imported)
+                        _deviceNames.value = merged
+                        registry.save(merged)
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
     // ── Filtering (includes device name matching) ───────────────────────────
 
     val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter, _deviceNames) { list, f, names ->

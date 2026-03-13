@@ -59,17 +59,20 @@ class CcuClient {
     }
 
     private fun fetchDeviceNames(ccuIp: String): Map<String, String> {
+        // HomeMatic Script: iterate BidCos-RF devices and output serial=name lines
+        // Use WriteLine() so output appears in <exec> tag, and '=' as separator
+        // (avoids escape sequence issues with \t in HomeMatic Script)
         val script = buildString {
-            append("string s;")
-            append("foreach(devId, dom.GetObject(ID_DEVICES).EnumUsedIDs()){")
+            append("string devId;")
+            append("foreach(devId,dom.GetObject(ID_DEVICES).EnumUsedIDs()){")
             append("var dev=dom.GetObject(devId);")
             append("var iface=dom.GetObject(dev.Interface());")
             append("if(iface){if(iface.Name()==\"BidCos-RF\"){")
-            append("s=s#dev.Address()#\"\\t\"#dev.Name()#\"\\n\";")
+            append("WriteLine(dev.Address()#\"=\"#dev.Name());")
             append("}}")
             append("}")
         }
-        val response = httpPost("http://$ccuIp:8181/tclrega.exe", script, "application/x-www-form-urlencoded")
+        val response = httpPost("http://$ccuIp:8181/tclrega.exe", script, "text/plain")
 
         // ReGaHSS wraps output in <xml><exec>...</exec></xml>
         val content = Regex("<exec>(.*?)</exec>", RegexOption.DOT_MATCHES_ALL)
@@ -77,9 +80,13 @@ class CcuClient {
 
         val names = mutableMapOf<String, String>()
         for (line in content.lines()) {
-            val parts = line.split("\t", limit = 2)
-            if (parts.size == 2 && parts[0].isNotBlank()) {
-                names[parts[0].trim()] = parts[1].trim()
+            val idx = line.indexOf('=')
+            if (idx > 0) {
+                val serial = line.substring(0, idx).trim()
+                val name = line.substring(idx + 1).trim()
+                if (serial.isNotEmpty() && name.isNotEmpty()) {
+                    names[serial] = name
+                }
             }
         }
         return names

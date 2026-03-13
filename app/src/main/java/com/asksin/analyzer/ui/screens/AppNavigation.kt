@@ -54,6 +54,14 @@ fun AppNavigation(viewModel: MainViewModel) {
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.importCsv(it) } }
 
+    val exportDevicesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportDeviceNames(it) } }
+
+    val importDevicesLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importDeviceNames(it) } }
+
     // Show device names management screen
     if (showDeviceNames) {
         DeviceNamesScreen(
@@ -65,6 +73,8 @@ fun AppNavigation(viewModel: MainViewModel) {
             onUpdateDevice = viewModel::updateDevice,
             onDeleteDevice = viewModel::deleteDevice,
             onClearAll = viewModel::clearDeviceNames,
+            onExport = { exportDevicesLauncher.launch("device-names.json") },
+            onImport = { importDevicesLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
             onBack = { showDeviceNames = false }
         )
         return

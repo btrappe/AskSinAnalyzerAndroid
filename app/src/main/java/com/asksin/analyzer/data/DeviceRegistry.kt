@@ -58,6 +58,35 @@ class DeviceRegistry(context: Context) {
         prefs.edit().remove("devices").apply()
     }
 
+    fun toJson(devices: Map<String, DeviceInfo>): String {
+        val obj = JSONObject()
+        for ((addr, info) in devices) {
+            val d = JSONObject()
+            d.put("name", info.name)
+            d.put("serial", info.serial)
+            d.put("type", info.type)
+            d.put("manual", info.manuallyAdded)
+            obj.put(addr, d)
+        }
+        return obj.toString(2)
+    }
+
+    fun fromJson(json: String): Map<String, DeviceInfo> {
+        val obj = JSONObject(json)
+        val map = mutableMapOf<String, DeviceInfo>()
+        for (key in obj.keys()) {
+            val d = obj.getJSONObject(key)
+            map[key] = DeviceInfo(
+                address = key,
+                name = d.optString("name", ""),
+                serial = d.optString("serial", ""),
+                type = d.optString("type", ""),
+                manuallyAdded = d.optBoolean("manual", false)
+            )
+        }
+        return map
+    }
+
     fun getCcuIp(): String = prefs.getString("ccu_ip", "") ?: ""
 
     fun setCcuIp(ip: String) {

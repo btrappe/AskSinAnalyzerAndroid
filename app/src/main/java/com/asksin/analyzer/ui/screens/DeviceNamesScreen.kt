@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -36,6 +38,8 @@ fun DeviceNamesScreen(
     onUpdateDevice: (DeviceInfo) -> Unit,
     onDeleteDevice: (String) -> Unit,
     onClearAll: () -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
     onBack: () -> Unit
 ) {
     var ccuIp by remember { mutableStateOf(initialCcuIp) }
@@ -67,7 +71,18 @@ fun DeviceNamesScreen(
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Clear all") },
+                                text = { Text("Export JSON", color = TextPrimary, fontSize = 13.sp) },
+                                onClick = { showMenu = false; onExport() },
+                                leadingIcon = { Icon(Icons.Default.FileDownload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import JSON", color = TextPrimary, fontSize = 13.sp) },
+                                onClick = { showMenu = false; onImport() },
+                                leadingIcon = { Icon(Icons.Default.FileUpload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                            )
+                            HorizontalDivider(color = Border)
+                            DropdownMenuItem(
+                                text = { Text("Clear all", color = TextPrimary, fontSize = 13.sp) },
                                 onClick = { showMenu = false; onClearAll() }
                             )
                         }
