@@ -19,7 +19,10 @@ module, connected via USB OTG.
 | RSSI Noise chart | Real-time sparkline of ambient noise floor |
 | Device stats | Per-device telegram count, avg/min/max RSSI, duty-cycle estimate |
 | Duty cycle alert | Warning when device approaches 1%/h limit on 868 MHz |
-| Filter | Search by address, message type, or hex content |
+| Device names | Resolve RF addresses to names via CCU2 (XML-API / ReGaHSS) |
+| Device name mgmt | Add, edit, delete entries; export/import as JSON |
+| CSV export/import | AskSinAnalyzerXS-compatible CSV with device names and serials |
+| Filter | Search by address, device name, message type, or hex content |
 | Auto-launch | App opens automatically when sniffer is plugged in |
 
 ---
@@ -98,9 +101,13 @@ app/src/main/java/com/asksin/analyzer/
 ├── MainActivity.kt              Entry point
 ├── MainViewModel.kt             State + business logic
 ├── model/
-│   └── Telegram.kt              Data model (Telegram, DeviceStats, NoiseSample)
+│   ├── Telegram.kt              Data model (Telegram, DeviceStats, NoiseSample)
+│   └── DeviceInfo.kt            Device name/serial/type mapping
 ├── data/
-│   └── TelegramParser.kt        Parses sniffer serial lines
+│   ├── TelegramParser.kt        Parses sniffer serial lines + BidCoS frame decoding
+│   ├── CsvExporter.kt           CSV export/import (AskSinAnalyzerXS format)
+│   ├── DeviceRegistry.kt        Persistent device name store (SharedPreferences)
+│   └── CcuClient.kt             CCU2 query (XML-API, ReGaHSS, XML-RPC)
 ├── serial/
 │   └── UsbSerialManager.kt      USB OTG connection management
 └── ui/
@@ -110,7 +117,8 @@ app/src/main/java/com/asksin/analyzer/
         ├── AppNavigation.kt      Bottom-tab navigation
         ├── MainScreen.kt         Telegram list + connection bar
         ├── TelegramDetailScreen.kt  Full telegram details
-        └── DeviceStatsScreen.kt  Per-device duty cycle & RSSI
+        ├── DeviceStatsScreen.kt  Per-device duty cycle & RSSI
+        └── DeviceNamesScreen.kt  Device name management + CCU fetch
 ```
 
 ---
@@ -120,8 +128,7 @@ app/src/main/java/com/asksin/analyzer/
 The app requests:
 - `android.hardware.usb.host` — USB Host / OTG mode
 - `USB_PERMISSION` — granted per-device on first connect
-
-No network, storage, or location permissions are required.
+- `INTERNET` — for querying CCU2 device names (XML-API / ReGaHSS)
 
 ---
 

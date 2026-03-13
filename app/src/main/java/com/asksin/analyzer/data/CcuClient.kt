@@ -28,10 +28,13 @@ class CcuClient {
             val names = fetchDeviceNames(ccuIp)
 
             if (rfDevices.isEmpty() && names.isEmpty()) {
-                return@withContext FetchResult(error = "Both XML-RPC (port 2001) and ReGaHSS (port 8181) returned 0 devices. Check that BidCos-RF is running on the CCU.")
+                return@withContext FetchResult(error = "XML-RPC (port 2001) returned 0 devices and name resolution found 0 names. Check that BidCos-RF is running on the CCU.")
             }
             if (rfDevices.isEmpty()) {
-                return@withContext FetchResult(error = "XML-RPC on port 2001 returned 0 RF devices (ReGaHSS found ${names.size} names). Check BidCos-RF interface.")
+                return@withContext FetchResult(error = "XML-RPC on port 2001 returned 0 RF devices (name resolution found ${names.size} names). Check BidCos-RF interface.")
+            }
+            if (names.isEmpty()) {
+                return@withContext FetchResult(error = "Found ${rfDevices.size} RF devices but name resolution returned 0 names. Check XML-API addon or ReGaHSS (port 8181).")
             }
 
             val devices = mutableMapOf<String, DeviceInfo>()
@@ -58,10 +61,53 @@ class CcuClient {
         return parseXmlRpcDevices(response)
     }
 
+    /**
+     * Fetch device names, trying XML-API addon first (port 80), then ReGaHSS (port 8181).
+     */
     private fun fetchDeviceNames(ccuIp: String): Map<String, String> {
-        // HomeMatic Script: iterate BidCos-RF devices and output serial=name lines
-        // Use WriteLine() so output appears in <exec> tag, and '=' as separator
-        // (avoids escape sequence issues with \t in HomeMatic Script)
+        // Try XML-API addon first — more reliable, uses standard HTTP port 80
+        try {
+            val names = fetchNamesViaXmlApi(ccuIp)
+            if (names.isNotEmpty()) return names
+        } catch (_: Exception) {}
+
+        // Fall back to ReGaHSS (port 8181)
+        return fetchNamesViaRegaHss(ccuIp)
+    }
+
+    /**
+     * Fetch device names via XML-API addon: GET /addons/xmlapi/devicelist.cgi
+     * Returns XML with <device name="..." address="..." interface="BidCos-RF" ...> elements.
+     */
+    private fun fetchNamesViaXmlApi(ccuIp: String): Map<String, String> {
+        val response = httpGet("http://$ccuIp/addons/xmlapi/devicelist.cgi")
+
+        val factory = XmlPullParserFactory.newInstance()
+        val parser = factory.newPullParser()
+        parser.setInput(StringReader(response))
+
+        val names = mutableMapOf<String, String>()
+        var event = parser.eventType
+        while (event != XmlPullParser.END_DOCUMENT) {
+            if (event == XmlPullParser.START_TAG && parser.name == "device") {
+                val iface = parser.getAttributeValue(null, "interface") ?: ""
+                if (iface == "BidCos-RF") {
+                    val address = parser.getAttributeValue(null, "address") ?: ""
+                    val name = parser.getAttributeValue(null, "name") ?: ""
+                    if (address.isNotEmpty() && name.isNotEmpty()) {
+                        names[address] = name
+                    }
+                }
+            }
+            event = parser.next()
+        }
+        return names
+    }
+
+    /**
+     * Fetch device names via ReGaHSS script on port 8181.
+     */
+    private fun fetchNamesViaRegaHss(ccuIp: String): Map<String, String> {
         val script = buildString {
             append("string devId;")
             append("foreach(devId,dom.GetObject(ID_DEVICES).EnumUsedIDs()){")
@@ -76,7 +122,7 @@ class CcuClient {
 
         // ReGaHSS wraps output in <xml><exec>...</exec></xml>
         val content = Regex("<exec>(.*?)</exec>", RegexOption.DOT_MATCHES_ALL)
-            .find(response)?.groupValues?.get(1) ?: response
+            .find(response)?.groupValues?.get(1) ?: ""
 
         val names = mutableMapOf<String, String>()
         for (line in content.lines()) {
@@ -90,6 +136,21 @@ class CcuClient {
             }
         }
         return names
+    }
+
+    private fun httpGet(url: String): String {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+            if (conn.responseCode !in 200..299) {
+                throw Exception("HTTP ${conn.responseCode} from $url")
+            }
+            return conn.inputStream.bufferedReader().readText()
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun httpPost(url: String, body: String, contentType: String): String {
