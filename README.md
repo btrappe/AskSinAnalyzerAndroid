@@ -125,6 +125,74 @@ No network, storage, or location permissions are required.
 
 ---
 
+## CI: Automatic OneDrive Upload
+
+The GitHub Actions workflow uploads the debug APK to a OneDrive folder on every
+push to `main`, so you can download and install it directly from your phone.
+
+### Setup
+
+#### 1. Register an Azure AD app
+
+1. Go to the [Azure App Registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) page
+2. Click **New registration**
+3. Name: `AskSinAnalyzer CI` (or any name you like)
+4. Supported account types: **Personal Microsoft accounts only**
+5. Redirect URI: select **Web**, enter `http://localhost`
+6. Click **Register**
+7. Copy the **Application (client) ID** — this becomes `ONEDRIVE_CLIENT_ID`
+
+#### 2. Create a client secret
+
+1. In your app registration, go to **Certificates & secrets**
+2. Click **New client secret**, add a description, pick an expiry
+3. Copy the secret **Value** (not the ID) — this becomes `ONEDRIVE_CLIENT_SECRET`
+
+#### 3. Get a refresh token
+
+Open this URL in your browser (replace `YOUR_CLIENT_ID`):
+
+```
+https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http%3A%2F%2Flocalhost&scope=offline_access%20Files.ReadWrite
+```
+
+Sign in with your personal Microsoft account and grant consent. You'll be
+redirected to `http://localhost/?code=SOME_LONG_CODE`. Copy the `code` value
+from the URL bar.
+
+Then exchange it for a refresh token:
+
+```bash
+curl -X POST https://login.microsoftonline.com/consumers/oauth2/v2.0/token \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "code=THE_CODE_YOU_COPIED" \
+  -d "redirect_uri=http://localhost" \
+  -d "grant_type=authorization_code" \
+  -d "scope=offline_access Files.ReadWrite"
+```
+
+From the JSON response, copy the `refresh_token` value — this becomes
+`ONEDRIVE_REFRESH_TOKEN`.
+
+> The refresh token stays valid as long as it's used at least once every
+> 90 days (which it will be, on every push to main).
+
+#### 4. Add GitHub secrets
+
+In your repo go to **Settings > Secrets and variables > Actions** and add:
+
+| Secret | Value |
+|---|---|
+| `ONEDRIVE_CLIENT_ID` | Application (client) ID from step 1 |
+| `ONEDRIVE_CLIENT_SECRET` | Client secret value from step 2 |
+| `ONEDRIVE_REFRESH_TOKEN` | Refresh token from step 3 |
+
+The APK will appear in `Documents/AskSinAnalyzer/` on your OneDrive after each
+push to `main`.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |

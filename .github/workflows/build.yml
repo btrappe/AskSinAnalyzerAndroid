@@ -45,6 +45,47 @@ jobs:
           path: app/build/outputs/apk/debug/asksinanalyzer-*-debug.apk
           retention-days: 30
 
+      - name: Upload debug APK to OneDrive
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          ONEDRIVE_CLIENT_ID: ${{ secrets.ONEDRIVE_CLIENT_ID }}
+          ONEDRIVE_CLIENT_SECRET: ${{ secrets.ONEDRIVE_CLIENT_SECRET }}
+          ONEDRIVE_REFRESH_TOKEN: ${{ secrets.ONEDRIVE_REFRESH_TOKEN }}
+        run: |
+          # Get access token using refresh token
+          TOKEN_RESPONSE=$(curl -s -X POST \
+            https://login.microsoftonline.com/consumers/oauth2/v2.0/token \
+            -d "client_id=${ONEDRIVE_CLIENT_ID}" \
+            -d "client_secret=${ONEDRIVE_CLIENT_SECRET}" \
+            -d "refresh_token=${ONEDRIVE_REFRESH_TOKEN}" \
+            -d "grant_type=refresh_token" \
+            -d "scope=offline_access Files.ReadWrite")
+
+          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+          if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+            echo "::error::Failed to get OneDrive access token"
+            echo "$TOKEN_RESPONSE" | jq .
+            exit 1
+          fi
+
+          # Find the APK file
+          APK_FILE=$(ls app/build/outputs/apk/debug/asksinanalyzer-*-debug.apk | head -1)
+          APK_NAME=$(basename "$APK_FILE")
+
+          # Upload to OneDrive Documents/AskSinAnalyzer folder
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+            "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/AskSinAnalyzer/${APK_NAME}:/content" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@${APK_FILE}")
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Uploaded ${APK_NAME} to OneDrive (HTTP ${HTTP_STATUS})"
+          else
+            echo "::error::OneDrive upload failed with HTTP ${HTTP_STATUS}"
+            exit 1
+          fi
+
       - name: Upload release APK
         if: inputs.release
         uses: actions/upload-artifact@v4
