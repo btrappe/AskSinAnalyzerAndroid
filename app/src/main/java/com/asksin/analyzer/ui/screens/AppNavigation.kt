@@ -1,5 +1,8 @@
 package com.asksin.analyzer.ui.screens
 
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -14,11 +17,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.asksin.analyzer.MainViewModel
 import com.asksin.analyzer.model.Telegram
 import com.asksin.analyzer.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,6 +91,23 @@ fun AppNavigation(viewModel: MainViewModel) {
     detailTelegram?.let { t ->
         TelegramDetailScreen(telegram = t, onBack = { detailTelegram = null }, nameResolver = nameResolver)
         return
+    }
+
+    // Double-back to exit
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var backPressedOnce by remember { mutableStateOf(false) }
+    BackHandler {
+        if (backPressedOnce) {
+            (context as? ComponentActivity)?.finish()
+        } else {
+            backPressedOnce = true
+            Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
+            scope.launch {
+                delay(2000)
+                backPressedOnce = false
+            }
+        }
     }
 
     Scaffold(
