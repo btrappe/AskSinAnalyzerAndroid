@@ -73,6 +73,7 @@ fun AppNavigation(viewModel: MainViewModel) {
             onUpdateDevice = viewModel::updateDevice,
             onDeleteDevice = viewModel::deleteDevice,
             onClearAll = viewModel::clearDeviceNames,
+            onAddUnknown = { viewModel.addUnknownDevices() },
             onExport = { exportDevicesLauncher.launch("device-names.json") },
             onImport = { importDevicesLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) },
             onBack = { showDeviceNames = false }

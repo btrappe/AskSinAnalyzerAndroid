@@ -112,6 +112,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         registry.save(map)
     }
 
+    fun addUnknownDevices(): Int {
+        val map = _deviceNames.value.toMutableMap()
+        val allAddresses = _telegrams.value.flatMap { listOf(it.srcAddress, it.dstAddress) }.toSet()
+        var count = 0
+        for (addr in allAddresses) {
+            if (addr !in map && addr != "000000") {
+                map[addr] = DeviceInfo(address = addr, name = addr, manuallyAdded = true)
+                count++
+            }
+        }
+        if (count > 0) {
+            _deviceNames.value = map
+            registry.save(map)
+        }
+        return count
+    }
+
     fun clearDeviceNames() {
         _deviceNames.value = emptyMap()
         registry.clear()

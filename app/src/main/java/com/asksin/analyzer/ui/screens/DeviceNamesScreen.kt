@@ -38,6 +38,7 @@ fun DeviceNamesScreen(
     onUpdateDevice: (DeviceInfo) -> Unit,
     onDeleteDevice: (String) -> Unit,
     onClearAll: () -> Unit,
+    onAddUnknown: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onBack: () -> Unit
@@ -79,6 +80,11 @@ fun DeviceNamesScreen(
                                 text = { Text("Import JSON", color = TextPrimary, fontSize = 13.sp) },
                                 onClick = { showMenu = false; onImport() },
                                 leadingIcon = { Icon(Icons.Default.FileUpload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Add unknown from data", color = TextPrimary, fontSize = 13.sp) },
+                                onClick = { showMenu = false; onAddUnknown() },
+                                leadingIcon = { Icon(Icons.Default.Add, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
                             )
                             HorizontalDivider(color = Border)
                             DropdownMenuItem(
