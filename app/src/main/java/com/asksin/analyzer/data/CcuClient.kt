@@ -8,6 +8,7 @@ import org.xmlpull.v1.XmlPullParserFactory
 import java.io.StringReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.Charset
 
 class CcuClient {
 
@@ -147,7 +148,7 @@ class CcuClient {
             if (conn.responseCode !in 200..299) {
                 throw Exception("HTTP ${conn.responseCode} from $url")
             }
-            return conn.inputStream.bufferedReader().readText()
+            return conn.inputStream.bufferedReader(conn.responseCharset()).readText()
         } finally {
             conn.disconnect()
         }
@@ -166,10 +167,18 @@ class CcuClient {
             if (conn.responseCode !in 200..299) {
                 throw Exception("HTTP ${conn.responseCode} from $url")
             }
-            return conn.inputStream.bufferedReader().readText()
+            return conn.inputStream.bufferedReader(conn.responseCharset()).readText()
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun HttpURLConnection.responseCharset(): Charset {
+        val ct = contentType ?: return Charsets.ISO_8859_1
+        val match = Regex("charset=([\\w-]+)", RegexOption.IGNORE_CASE).find(ct)
+        return match?.groupValues?.get(1)?.let {
+            try { Charset.forName(it) } catch (_: Exception) { null }
+        } ?: Charsets.ISO_8859_1
     }
 
     /**
