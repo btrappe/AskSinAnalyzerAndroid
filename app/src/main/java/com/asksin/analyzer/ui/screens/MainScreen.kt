@@ -32,6 +32,7 @@ fun MainScreen(
     noiseSamples: List<NoiseSample>,
     availableDevices: List<UsbSerialDriver>,
     filter: String,
+    nameResolver: (String) -> String? = { null },
     onFilterChange: (String) -> Unit,
     onConnect: (UsbSerialDriver) -> Unit,
     onDisconnect: () -> Unit,
@@ -39,7 +40,8 @@ fun MainScreen(
     onRefreshDevices: () -> Unit,
     onTelegramClick: (Telegram) -> Unit,
     onExport: () -> Unit = {},
-    onImport: () -> Unit = {}
+    onImport: () -> Unit = {},
+    onShowDeviceNames: () -> Unit = {}
 ) {
     var showDeviceDialog by remember { mutableStateOf(false) }
 
@@ -55,7 +57,8 @@ fun MainScreen(
             onDisconnect = onDisconnect,
             onClear = onClear,
             onExport = onExport,
-            onImport = onImport
+            onImport = onImport,
+            onShowDeviceNames = onShowDeviceNames
         )
 
         // ── Noise chart ──────────────────────────────────────────────────────
@@ -135,7 +138,7 @@ fun MainScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(telegrams, key = { it.id }) { t ->
-                    TelegramRow(telegram = t, onClick = { onTelegramClick(t) }, onAddressClick = onFilterChange)
+                    TelegramRow(telegram = t, onClick = { onTelegramClick(t) }, onAddressClick = onFilterChange, nameResolver = nameResolver)
                 }
             }
         }
@@ -162,7 +165,8 @@ private fun TopBar(
     onDisconnect: () -> Unit,
     onClear: () -> Unit,
     onExport: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    onShowDeviceNames: () -> Unit = {}
 ) {
     val isConnected = connectionState is ConnectionState.Connected
     val label = when (connectionState) {
@@ -217,6 +221,11 @@ private fun TopBar(
                     text = { Text("Import CSV", color = TextPrimary, fontSize = 13.sp) },
                     onClick = { showMenu = false; onImport() },
                     leadingIcon = { Icon(Icons.Default.FileUpload, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Device Names", color = TextPrimary, fontSize = 13.sp) },
+                    onClick = { showMenu = false; onShowDeviceNames() },
+                    leadingIcon = { Icon(Icons.Default.Devices, null, tint = TextMuted, modifier = Modifier.size(18.dp)) }
                 )
                 HorizontalDivider(color = Border)
                 DropdownMenuItem(

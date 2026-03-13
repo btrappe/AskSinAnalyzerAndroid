@@ -23,7 +23,7 @@ import com.asksin.analyzer.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelegramDetailScreen(telegram: Telegram, onBack: () -> Unit) {
+fun TelegramDetailScreen(telegram: Telegram, onBack: () -> Unit, nameResolver: (String) -> String? = { null }) {
     Scaffold(
         containerColor = Background,
         topBar = {
@@ -56,12 +56,12 @@ fun TelegramDetailScreen(telegram: Telegram, onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("SRC", color = TextMuted, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-                    AddressChip(telegram.srcAddress, true)
+                    AddressChip(telegram.srcAddress, true, nameResolver(telegram.srcAddress))
                 }
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("DST", color = TextMuted, fontSize = 11.sp, modifier = Modifier.width(40.dp))
-                    AddressChip(telegram.dstAddress, false)
+                    AddressChip(telegram.dstAddress, false, nameResolver(telegram.dstAddress))
                     if (telegram.isBroadcast) {
                         Box(Modifier.clip(RoundedCornerShape(4.dp)).background(Warning.copy(.2f)).padding(4.dp, 2.dp)) {
                             Text("BROADCAST", color = Warning, fontSize = 9.sp)

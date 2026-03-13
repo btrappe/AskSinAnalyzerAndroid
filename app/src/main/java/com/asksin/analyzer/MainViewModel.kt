@@ -4,8 +4,11 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.asksin.analyzer.data.CcuClient
 import com.asksin.analyzer.data.CsvExporter
+import com.asksin.analyzer.data.DeviceRegistry
 import com.asksin.analyzer.data.TelegramParser
+import com.asksin.analyzer.model.DeviceInfo
 import com.asksin.analyzer.model.DeviceStats
 import com.asksin.analyzer.model.NoiseSample
 import com.asksin.analyzer.model.Telegram
@@ -29,6 +32,8 @@ private const val DUTY_CYCLE_WINDOW_MS = 3_600_000L   // 1 hour
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val usbManager = UsbSerialManager(app)
+    private val registry = DeviceRegistry(app)
+    private val ccuClient = CcuClient()
 
     val connectionState: StateFlow<ConnectionState> = usbManager.connectionState
 
@@ -44,13 +49,85 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _filter = MutableStateFlow("")
     val filter: StateFlow<String> = _filter.asStateFlow()
 
-    val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter) { list, f ->
+    // ── Device name resolution ──────────────────────────────────────────────
+
+    private val _deviceNames = MutableStateFlow<Map<String, DeviceInfo>>(emptyMap())
+    val deviceNames: StateFlow<Map<String, DeviceInfo>> = _deviceNames.asStateFlow()
+
+    private val _ccuFetchState = MutableStateFlow<CcuFetchState>(CcuFetchState.Idle)
+    val ccuFetchState: StateFlow<CcuFetchState> = _ccuFetchState.asStateFlow()
+
+    sealed class CcuFetchState {
+        object Idle : CcuFetchState()
+        object Loading : CcuFetchState()
+        data class Success(val count: Int) : CcuFetchState()
+        data class Error(val message: String) : CcuFetchState()
+    }
+
+    fun getCcuIp(): String = registry.getCcuIp()
+
+    fun resolveAddress(address: String): String? = _deviceNames.value[address]?.name
+
+    fun fetchFromCcu(ip: String) {
+        registry.setCcuIp(ip)
+        _ccuFetchState.value = CcuFetchState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = ccuClient.fetchDevices(ip)
+            if (result.error != null) {
+                _ccuFetchState.value = CcuFetchState.Error(result.error)
+            } else {
+                // Merge: keep manual entries, overwrite CCU-fetched ones
+                val merged = _deviceNames.value.toMutableMap()
+                for ((addr, info) in result.devices) {
+                    val existing = merged[addr]
+                    if (existing == null || !existing.manuallyAdded) {
+                        merged[addr] = info
+                    }
+                }
+                _deviceNames.value = merged
+                registry.save(merged)
+                _ccuFetchState.value = CcuFetchState.Success(result.devices.size)
+            }
+        }
+    }
+
+    fun addDevice(info: DeviceInfo) {
+        val map = _deviceNames.value.toMutableMap()
+        map[info.address] = info.copy(manuallyAdded = true)
+        _deviceNames.value = map
+        registry.save(map)
+    }
+
+    fun updateDevice(info: DeviceInfo) {
+        val map = _deviceNames.value.toMutableMap()
+        map[info.address] = info
+        _deviceNames.value = map
+        registry.save(map)
+    }
+
+    fun deleteDevice(address: String) {
+        val map = _deviceNames.value.toMutableMap()
+        map.remove(address)
+        _deviceNames.value = map
+        registry.save(map)
+    }
+
+    fun clearDeviceNames() {
+        _deviceNames.value = emptyMap()
+        registry.clear()
+    }
+
+    // ── Filtering (includes device name matching) ───────────────────────────
+
+    val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter, _deviceNames) { list, f, names ->
             val q = f.trim().uppercase()
             if (q.isEmpty()) list else list.filter {
                 it.srcAddress.contains(q) ||
                 it.dstAddress.contains(q) ||
                 it.msgTypeName.uppercase().contains(q) ||
-                it.formattedRaw.replace(" ", "").contains(q)
+                it.formattedRaw.replace(" ", "").contains(q) ||
+                (names[it.srcAddress]?.name?.uppercase()?.contains(q) == true) ||
+                (names[it.dstAddress]?.name?.uppercase()?.contains(q) == true)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -58,6 +135,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val availableDevices: StateFlow<List<UsbSerialDriver>> = MutableStateFlow(emptyList())
 
     init {
+        // Load cached device names
+        _deviceNames.value = registry.loadAll()
+
         // Start consuming serial lines
         viewModelScope.launch(Dispatchers.IO) {
             for (line in usbManager.lineChannel) {
@@ -91,7 +171,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 getApplication<Application>().contentResolver.openOutputStream(uri)?.use { out ->
-                    CsvExporter.export(_telegrams.value, out)
+                    CsvExporter.export(_telegrams.value, out) { addr -> _deviceNames.value[addr] }
                 }
             } catch (_: Exception) { }
         }

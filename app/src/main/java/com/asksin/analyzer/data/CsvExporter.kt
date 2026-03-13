@@ -1,5 +1,6 @@
 package com.asksin.analyzer.data
 
+import com.asksin.analyzer.model.DeviceInfo
 import com.asksin.analyzer.model.Telegram
 import java.io.BufferedReader
 import java.io.InputStream
@@ -25,28 +26,33 @@ object CsvExporter {
 
     // ── Export ───────────────────────────────────────────────────────────────
 
-    fun export(telegrams: List<Telegram>, out: OutputStream) {
+    fun export(telegrams: List<Telegram>, out: OutputStream, nameResolver: (String) -> DeviceInfo? = { null }) {
         out.bufferedWriter().use { w ->
             w.write(HEADER)
             w.newLine()
             for (t in telegrams) {
-                w.write(toCsvLine(t))
+                w.write(toCsvLine(t, nameResolver))
                 w.newLine()
             }
         }
     }
 
-    private fun toCsvLine(t: Telegram): String {
+    private fun toCsvLine(t: Telegram, nameResolver: (String) -> DeviceInfo? = { null }): String {
         val date = DATE_FORMAT.format(Date(t.timestamp))
         val flags = flagsString(t.flags)
         val type = t.msgTypeName
         val fromAddr = hexAddressToDecimal(t.srcAddress)
         val toAddr = hexAddressToDecimal(t.dstAddress)
+        val fromInfo = nameResolver(t.srcAddress)
+        val toInfo = nameResolver(t.dstAddress)
         val payload = t.payload.joinToString("") { "%02X".format(it) }
         val raw = ":" + t.rawBytes.joinToString("") { "%02X".format(it) }
 
         return "${t.timestamp};$date;${t.rssi};${t.msgLen};${t.msgCounter};${t.dutyCycle};" +
-                "$flags;$type;$fromAddr;$toAddr;;;;;;;$payload;$raw;"
+                "$flags;$type;$fromAddr;$toAddr;" +
+                "${fromInfo?.name ?: ""};${toInfo?.name ?: ""};" +
+                "${fromInfo?.serial ?: ""};${toInfo?.serial ?: ""};" +
+                ";;$payload;$raw;"
     }
 
     private fun flagsString(flags: Int): String {

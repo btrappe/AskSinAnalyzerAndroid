@@ -38,8 +38,13 @@ fun AppNavigation(viewModel: MainViewModel) {
     val availableDevices by viewModel.availableDevices.collectAsState()
     val filter by viewModel.filter.collectAsState()
 
+    val deviceNames by viewModel.deviceNames.collectAsState()
+    val ccuFetchState by viewModel.ccuFetchState.collectAsState()
+    val nameResolver: (String) -> String? = { viewModel.resolveAddress(it) }
+
     var selectedTab by remember { mutableStateOf(Tab.TELEGRAMS) }
     var detailTelegram by remember { mutableStateOf<Telegram?>(null) }
+    var showDeviceNames by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
@@ -49,9 +54,25 @@ fun AppNavigation(viewModel: MainViewModel) {
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.importCsv(it) } }
 
+    // Show device names management screen
+    if (showDeviceNames) {
+        DeviceNamesScreen(
+            deviceNames = deviceNames,
+            ccuFetchState = ccuFetchState,
+            initialCcuIp = viewModel.getCcuIp(),
+            onFetchFromCcu = viewModel::fetchFromCcu,
+            onAddDevice = viewModel::addDevice,
+            onUpdateDevice = viewModel::updateDevice,
+            onDeleteDevice = viewModel::deleteDevice,
+            onClearAll = viewModel::clearDeviceNames,
+            onBack = { showDeviceNames = false }
+        )
+        return
+    }
+
     // Show detail overlay if a telegram is selected
     detailTelegram?.let { t ->
-        TelegramDetailScreen(telegram = t, onBack = { detailTelegram = null })
+        TelegramDetailScreen(telegram = t, onBack = { detailTelegram = null }, nameResolver = nameResolver)
         return
     }
 
@@ -88,6 +109,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                     noiseSamples = noiseSamples,
                     availableDevices = availableDevices,
                     filter = filter,
+                    nameResolver = nameResolver,
                     onFilterChange = viewModel::setFilter,
                     onConnect = viewModel::connect,
                     onDisconnect = viewModel::disconnect,
@@ -100,9 +122,10 @@ fun AppNavigation(viewModel: MainViewModel) {
                     },
                     onImport = {
                         importLauncher.launch(arrayOf("text/*", "text/csv", "application/octet-stream"))
-                    }
+                    },
+                    onShowDeviceNames = { showDeviceNames = true }
                 )
-                Tab.DEVICES -> DeviceStatsScreen(stats = deviceStats)
+                Tab.DEVICES -> DeviceStatsScreen(stats = deviceStats, nameResolver = nameResolver)
             }
         }
     }

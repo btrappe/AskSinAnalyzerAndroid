@@ -108,7 +108,7 @@ fun DutyCycleBadge(percent: Float, modifier: Modifier = Modifier) {
 
 /** Single telegram row card */
 @Composable
-fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String) -> Unit = {}, modifier: Modifier = Modifier) {
+fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String) -> Unit = {}, nameResolver: (String) -> String? = { null }, modifier: Modifier = Modifier) {
     Box(
         modifier
             .fillMaxWidth()
@@ -142,11 +142,11 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String
 
             // Address row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AddressChip(telegram.srcAddress, true) { onAddressClick(telegram.srcAddress) }
+                AddressChip(telegram.srcAddress, true, nameResolver(telegram.srcAddress)) { onAddressClick(telegram.srcAddress) }
                 Spacer(Modifier.width(6.dp))
                 Text("→", color = TextMuted, fontSize = 10.sp)
                 Spacer(Modifier.width(6.dp))
-                AddressChip(telegram.dstAddress, false) { onAddressClick(telegram.dstAddress) }
+                AddressChip(telegram.dstAddress, false, nameResolver(telegram.dstAddress)) { onAddressClick(telegram.dstAddress) }
                 Spacer(Modifier.weight(1f))
                 // LQI dot
                 val lqiColor = if (telegram.lqiGood) RssiGood else Warning
@@ -180,7 +180,7 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String
 }
 
 @Composable
-fun AddressChip(address: String, isSource: Boolean, onClick: () -> Unit = {}) {
+fun AddressChip(address: String, isSource: Boolean, deviceName: String? = null, onClick: () -> Unit = {}) {
     val bg = if (isSource) Accent.copy(alpha = 0.12f) else AccentDim.copy(alpha = 0.08f)
     val fg = if (isSource) Accent else AccentDim
     Box(
@@ -190,7 +190,14 @@ fun AddressChip(address: String, isSource: Boolean, onClick: () -> Unit = {}) {
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
-        Text(address, color = fg, fontSize = 10.sp, fontFamily = MonoFont, fontWeight = FontWeight.Bold)
+        if (deviceName != null) {
+            Column {
+                Text(address, color = fg, fontSize = 9.sp, fontFamily = MonoFont)
+                Text(deviceName, color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            Text(address, color = fg, fontSize = 10.sp, fontFamily = MonoFont, fontWeight = FontWeight.Bold)
+        }
     }
 }
 

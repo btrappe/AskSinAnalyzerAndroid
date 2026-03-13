@@ -23,7 +23,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun DeviceStatsScreen(stats: Map<String, DeviceStats>) {
+fun DeviceStatsScreen(stats: Map<String, DeviceStats>, nameResolver: (String) -> String? = { null }) {
     val sorted = stats.values.sortedByDescending { it.lastSeen }
 
     if (sorted.isEmpty()) {
@@ -39,13 +39,13 @@ fun DeviceStatsScreen(stats: Map<String, DeviceStats>) {
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         items(sorted, key = { it.address }) { device ->
-            DeviceCard(device)
+            DeviceCard(device, nameResolver)
         }
     }
 }
 
 @Composable
-private fun DeviceCard(stats: DeviceStats) {
+private fun DeviceCard(stats: DeviceStats, nameResolver: (String) -> String? = { null }) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -60,7 +60,7 @@ private fun DeviceCard(stats: DeviceStats) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AddressChip(stats.address, true)
+            AddressChip(stats.address, true, nameResolver(stats.address))
             DutyCycleBadge(stats.dutyCyclePercent)
         }
 

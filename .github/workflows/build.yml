@@ -72,9 +72,9 @@ jobs:
           APK_FILE=$(ls app/build/outputs/apk/debug/asksinanalyzer-*-debug.apk | head -1)
           APK_NAME=$(basename "$APK_FILE")
 
-          # Upload to OneDrive Documents/AskSinAnalyzer folder
+          # Upload to OneDrive AskSinAnalyzer folder
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
-            "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/AskSinAnalyzer/${APK_NAME}:/content" \
+            "https://graph.microsoft.com/v1.0/me/drive/root:/AskSinAnalyzer/${APK_NAME}:/content" \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary "@${APK_FILE}")
