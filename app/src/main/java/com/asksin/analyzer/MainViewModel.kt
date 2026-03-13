@@ -4,6 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.asksin.analyzer.BuildConfig
+import com.asksin.analyzer.data.AesVerifier
 import com.asksin.analyzer.data.CcuClient
 import com.asksin.analyzer.data.CsvExporter
 import com.asksin.analyzer.data.DeviceRegistry
@@ -13,6 +15,7 @@ import com.asksin.analyzer.model.DeviceInfo
 import com.asksin.analyzer.model.DeviceStats
 import com.asksin.analyzer.model.NoiseSample
 import com.asksin.analyzer.model.Telegram
+import com.asksin.analyzer.model.SequenceType
 import com.asksin.analyzer.model.TelegramListItem
 import com.asksin.analyzer.model.TelegramSequence
 import com.asksin.analyzer.serial.ConnectionState
@@ -38,6 +41,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val registry = DeviceRegistry(app)
     private val ccuClient = CcuClient()
     private val sequenceDetector = SequenceDetector()
+    private val aesVerifier = AesVerifier(BuildConfig.BIDCOS_AES_DEFAULT_KEY)
 
     val connectionState: StateFlow<ConnectionState> = usbManager.connectionState
 
@@ -198,6 +202,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _expandedGroups.value = current
     }
 
+    fun getAesVerified(telegramId: Long): Boolean? {
+        val seqId = sequenceDetector.telegramToSequence[telegramId] ?: return null
+        val seq = _sequences.value[seqId] ?: return null
+        return if (seq.type == SequenceType.AES_HANDSHAKE) seq.aesVerified else null
+    }
+
     fun getSequenceFor(telegramId: Long): Pair<TelegramSequence, List<Telegram>>? {
         val seqId = sequenceDetector.telegramToSequence[telegramId] ?: return null
         val seq = _sequences.value[seqId] ?: return null
@@ -243,7 +253,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun updateSequences() {
-        _sequences.value = sequenceDetector.allSequences()
+        val raw = sequenceDetector.allSequences()
+        _sequences.value = raw.mapValues { (_, seq) ->
+            if (seq.type == SequenceType.AES_HANDSHAKE && seq.isComplete && seq.telegramIds.size >= 3 && seq.aesVerified == null) {
+                val members = seq.telegramIds.mapNotNull { id -> _telegrams.value.find { it.id == id } }
+                if (members.size >= 3) {
+                    seq.copy(aesVerified = aesVerifier.verify(members[0], members[1], members[2]))
+                } else seq
+            } else seq
+        }
     }
 
     val availableDevices: StateFlow<List<UsbSerialDriver>> = MutableStateFlow(emptyList())

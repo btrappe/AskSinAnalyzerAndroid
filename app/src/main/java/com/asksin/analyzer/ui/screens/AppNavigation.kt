@@ -148,6 +148,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                     availableDevices = availableDevices,
                     filter = filter,
                     nameResolver = nameResolver,
+                    aesResolver = viewModel::getAesVerified,
                     onFilterChange = viewModel::setFilter,
                     onConnect = viewModel::connect,
                     onDisconnect = viewModel::disconnect,

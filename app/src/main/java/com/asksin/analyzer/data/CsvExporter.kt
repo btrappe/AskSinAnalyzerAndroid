@@ -58,6 +58,7 @@ object CsvExporter {
     private fun flagsString(flags: Int): String {
         val parts = mutableListOf<String>()
         if (flags and 0x04 != 0) parts.add("BCAST")
+        if (flags and 0x08 != 0) parts.add("AES")
         if (flags and 0x20 != 0) parts.add("BIDI")
         if (flags and 0x80 != 0) parts.add("RPTEN")
         if (flags and 0x40 != 0) parts.add("RPTED")

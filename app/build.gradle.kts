@@ -18,6 +18,8 @@ android {
         targetSdk = 34
         versionCode = major * 10000 + minor * 100 + patch
         versionName = "$major.$minor.$patch"
+        buildConfigField("String", "BIDCOS_AES_DEFAULT_KEY",
+            "\"${findProperty("BIDCOS_AES_DEFAULT_KEY") ?: ""}\"")
     }
 
     signingConfigs {

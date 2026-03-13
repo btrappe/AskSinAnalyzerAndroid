@@ -111,6 +111,7 @@ private fun flagsDescription(flags: Int): String {
     if (flags and 0x01 != 0) parts.add("WAKEUP")
     if (flags and 0x02 != 0) parts.add("WAKEMEUP")
     if (flags and 0x04 != 0) parts.add("BCAST")
+    if (flags and 0x08 != 0) parts.add("AES")
     if (flags and 0x10 != 0) parts.add("BURST")
     if (flags and 0x20 != 0) parts.add("BIDI")
     if (flags and 0x40 != 0) parts.add("RPTED")

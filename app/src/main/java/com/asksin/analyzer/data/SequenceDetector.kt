@@ -86,6 +86,7 @@ class SequenceDetector {
             val matched = when (open.type) {
                 SequenceType.PAIRING -> matchPairing(t, open)
                 SequenceType.CONFIG_READ -> matchConfigRead(t, open)
+                SequenceType.AES_HANDSHAKE -> matchAesHandshake(t, open)
                 else -> matchStandard(t, open)
             }
 
@@ -134,6 +135,26 @@ class SequenceDetector {
         return false
     }
 
+    private fun matchAesHandshake(t: Telegram, open: OpenSequence): Boolean {
+        val msgIndex = open.telegramIds.size  // 1-based: next expected message
+        return when (msgIndex) {
+            1 -> {
+                // Message 2: RESPONSE_AES (0x03) from dst→src
+                t.msgType == 0x03 &&
+                        t.srcAddress == open.expectedSrc &&
+                        t.dstAddress == open.expectedDst
+            }
+            2 -> {
+                // Message 3: AES response from original sender back
+                val matches = t.srcAddress == open.expectedDst &&
+                        t.dstAddress == open.expectedSrc
+                if (matches) open.acceptsMore = false
+                matches
+            }
+            else -> false
+        }
+    }
+
     private fun matchConfigRead(t: Telegram, open: OpenSequence): Boolean {
         // Accepts multiple RESPONSE (0x02) from the expected source
         if (t.srcAddress == open.expectedSrc && t.dstAddress == open.expectedDst) {
@@ -157,6 +178,14 @@ class SequenceDetector {
         if (t.msgType == 0x00 && t.isBroadcast) {
             startSequence(t, SequenceType.PAIRING,
                 expectedSrc = "", expectedDst = t.srcAddress,
+                acceptsMore = true)
+            return
+        }
+
+        // AES Handshake: message with AES flag (0x08) + BIDI
+        if (t.flags and 0x08 != 0 && hasBidi) {
+            startSequence(t, SequenceType.AES_HANDSHAKE,
+                expectedSrc = t.dstAddress, expectedDst = t.srcAddress,
                 acceptsMore = true)
             return
         }

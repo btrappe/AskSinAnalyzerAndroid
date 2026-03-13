@@ -16,5 +16,6 @@ data class TelegramSequence(
     val id: Long,                    // first telegram's id
     val type: SequenceType,
     val telegramIds: List<Long>,     // ordered member IDs
-    val isComplete: Boolean
+    val isComplete: Boolean,
+    val aesVerified: Boolean? = null  // null=N/A or no key, true=verified, false=failed
 )

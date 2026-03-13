@@ -112,9 +112,30 @@ fun DutyCycleBadge(percent: Float, modifier: Modifier = Modifier) {
     }
 }
 
+/** AES verification badge */
+@Composable
+fun AesBadge(verified: Boolean?, modifier: Modifier = Modifier) {
+    val color: Color
+    val label: String
+    when (verified) {
+        true -> { color = Accent; label = "AES OK" }
+        false -> { color = Danger; label = "AES FAIL" }
+        null -> { color = TextMuted; label = "AES" }
+    }
+    Box(
+        modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(color.copy(alpha = 0.15f))
+            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
 /** Single telegram row card */
 @Composable
-fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String) -> Unit = {}, nameResolver: (String) -> String? = { null }, modifier: Modifier = Modifier) {
+fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String) -> Unit = {}, nameResolver: (String) -> String? = { null }, aesVerified: Boolean? = null, modifier: Modifier = Modifier) {
     Box(
         modifier
             .fillMaxWidth()
@@ -137,12 +158,17 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String
                     fontSize = 10.sp,
                     fontFamily = MonoFont
                 )
-                Text(
-                    telegram.msgTypeName,
-                    color = Accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (telegram.hasAes) {
+                        AesBadge(aesVerified)
+                    }
+                    Text(
+                        telegram.msgTypeName,
+                        color = Accent,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
 
@@ -309,9 +335,11 @@ fun SequenceGroupHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     SequenceTypeBadge(sequence.type)
-                    Spacer(Modifier.width(6.dp))
+                    if (sequence.type == SequenceType.AES_HANDSHAKE) {
+                        AesBadge(sequence.aesVerified)
+                    }
                     Text(
                         "${telegrams.size} msgs",
                         color = TextMuted, fontSize = 10.sp

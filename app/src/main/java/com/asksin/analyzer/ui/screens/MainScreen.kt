@@ -36,6 +36,7 @@ fun MainScreen(
     availableDevices: List<UsbSerialDriver>,
     filter: String,
     nameResolver: (String) -> String? = { null },
+    aesResolver: (Long) -> Boolean? = { null },
     onFilterChange: (String) -> Unit,
     onConnect: (UsbSerialDriver) -> Unit,
     onDisconnect: () -> Unit,
@@ -152,7 +153,7 @@ fun MainScreen(
                 }) { item ->
                     when (item) {
                         is TelegramListItem.Single ->
-                            TelegramRow(telegram = item.telegram, onClick = { onTelegramClick(item.telegram) }, onAddressClick = onFilterChange, nameResolver = nameResolver)
+                            TelegramRow(telegram = item.telegram, onClick = { onTelegramClick(item.telegram) }, onAddressClick = onFilterChange, nameResolver = nameResolver, aesVerified = aesResolver(item.telegram.id))
                         is TelegramListItem.GroupHeader ->
                             SequenceGroupHeader(
                                 sequence = item.sequence,

@@ -53,6 +53,9 @@ data class Telegram(
     val isBroadcast: Boolean
         get() = dstAddress == "000000"
 
+    val hasAes: Boolean
+        get() = flags and 0x08 != 0
+
     val rssiBar: Float
         get() = ((rssi + 100).coerceIn(0, 70) / 70f)  // normalise -100…-30 → 0…1
 
