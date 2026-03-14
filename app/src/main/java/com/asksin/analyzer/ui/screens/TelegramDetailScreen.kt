@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asksin.analyzer.data.PayloadDecoder
 import com.asksin.analyzer.model.Telegram
 import com.asksin.analyzer.ui.components.AddressChip
 import com.asksin.analyzer.ui.components.RssiBar
@@ -78,8 +79,18 @@ fun TelegramDetailScreen(telegram: Telegram, onBack: () -> Unit, nameResolver: (
                     valueColor = if (telegram.lqiGood) RssiGood else Warning)
             }
 
-            // Payload
+            // Decoded payload
             if (telegram.payload.isNotEmpty()) {
+                val decoded = PayloadDecoder.decode(telegram.msgType, telegram.payload)
+                if (decoded.isNotEmpty()) {
+                    InfoCard("Decoded Payload") {
+                        decoded.forEach { field ->
+                            InfoRow(field.name, field.value)
+                        }
+                    }
+                }
+
+                // Raw payload hex dump
                 InfoCard("Payload (${telegram.payload.size} bytes)") {
                     HexDump(telegram.payload)
                 }

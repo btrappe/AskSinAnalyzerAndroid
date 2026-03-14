@@ -163,10 +163,12 @@ fun TelegramRow(telegram: Telegram, onClick: () -> Unit, onAddressClick: (String
                         AesBadge(aesVerified)
                     }
                     Text(
-                        telegram.msgTypeName,
+                        telegram.msgSubtypeName?.let { "${telegram.msgTypeName} / $it" } ?: telegram.msgTypeName,
                         color = Accent,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

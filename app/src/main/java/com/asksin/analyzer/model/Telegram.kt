@@ -50,6 +50,9 @@ data class Telegram(
     val msgTypeName: String
         get() = MessageTypes.name(msgType)
 
+    val msgSubtypeName: String?
+        get() = com.asksin.analyzer.data.PayloadDecoder.subtypeName(msgType, payload)
+
     val isBroadcast: Boolean
         get() = dstAddress == "000000"
 
@@ -75,13 +78,16 @@ object MessageTypes {
         0x04 to "KEY_EXCHANGE",
         0x10 to "INFO",
         0x11 to "ACTION",
-        0x12 to "GET",
-        0x3E to "TIMESTAMP",
+        0x12 to "HAVE_DATA",
+        0x3E to "SWITCH_EVENT",
         0x3F to "TIMESTAMP",
         0x40 to "REMOTE_EVENT",
-        0x41 to "SENSOR_DATA",
-        0x53 to "SENSOR_EVENT",
+        0x41 to "SENSOR_EVENT",
+        0x53 to "SENSOR_DATA",
         0x58 to "CLIMATE_EVENT",
+        0x5A to "CLIMATECTRL_EVENT",
+        0x5E to "POWER_EVENT_CYCLIC",
+        0x5F to "POWER_EVENT",
         0x70 to "WEATHER_EVENT",
         0xCA to "SET_TEAM"
     )
