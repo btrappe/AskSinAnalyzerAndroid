@@ -12,18 +12,26 @@ class SequenceDetector {
     }
 
     private data class OpenSequence(
-        val type: SequenceType,
+        var type: SequenceType,
         val telegramIds: MutableList<Long>,
         val firstId: Long,
         val expectedSrc: String,
         val expectedDst: String,
         val expectedCounter: Int,
         val startTime: Long,
-        var acceptsMore: Boolean,       // for config read: accepts multiple responses
-        var pairingSrc: String? = null   // for pairing: any source can respond
+        var acceptsMore: Boolean,
+        var pairingSrc: String? = null
+    )
+
+    // Recently completed sequences, keyed by "counter:addrA:addrB" (sorted pair)
+    // Used to retroactively upgrade sequences when RESPONSE_AES arrives late
+    private data class RecentSequence(
+        val open: OpenSequence,
+        val completedTime: Long
     )
 
     private val openSequences = mutableListOf<OpenSequence>()
+    private val recentlyCompleted = mutableMapOf<String, RecentSequence>()
     private val _completedSequences = mutableMapOf<Long, TelegramSequence>()
     private val _telegramToSequence = mutableMapOf<Long, Long>()
 
@@ -33,7 +41,7 @@ class SequenceDetector {
     fun ingest(t: Telegram) {
         expireOpenSequences(t.timestamp)
 
-        // Try to match against open sequences
+        // Try to match against open sequences or recently completed (for AES upgrade)
         if (tryMatch(t)) return
 
         // Try to start a new sequence
@@ -46,19 +54,18 @@ class SequenceDetector {
         for (t in sorted) {
             ingest(t)
         }
-        // Close all remaining open sequences
         closeAllOpen()
         return _completedSequences.toMap()
     }
 
     fun clear() {
         openSequences.clear()
+        recentlyCompleted.clear()
         _completedSequences.clear()
         _telegramToSequence.clear()
     }
 
     fun allSequences(): Map<Long, TelegramSequence> {
-        // Return completed + snapshot of open as incomplete sequences
         val result = _completedSequences.toMutableMap()
         for (open in openSequences) {
             result[open.firstId] = TelegramSequence(
@@ -72,14 +79,18 @@ class SequenceDetector {
     }
 
     private fun tryMatch(t: Telegram): Boolean {
+        // Special handling: RESPONSE_AES (0x03) may need to re-open a recently completed sequence
+        if (t.msgType == 0x03) {
+            if (tryMatchAesReopen(t)) return true
+        }
+
         val iter = openSequences.iterator()
         while (iter.hasNext()) {
             val open = iter.next()
 
-            // Check timeout
             if (t.timestamp - open.startTime > SEQUENCE_TIMEOUT_MS) {
                 iter.remove()
-                completeSequence(open, isComplete = false)
+                completeSequence(open, isComplete = false, t.timestamp)
                 continue
             }
 
@@ -94,14 +105,45 @@ class SequenceDetector {
                 open.telegramIds.add(t.id)
                 _telegramToSequence[t.id] = open.firstId
 
-                if (!open.acceptsMore) {
+                // If this is a RESPONSE_AES matching an open non-AES sequence, upgrade it
+                if (t.msgType == 0x03 && open.type != SequenceType.AES_HANDSHAKE) {
+                    open.type = SequenceType.AES_HANDSHAKE
+                    open.acceptsMore = true  // expect final ACK
+                } else if (!open.acceptsMore) {
                     iter.remove()
-                    completeSequence(open, isComplete = true)
+                    completeSequence(open, isComplete = true, t.timestamp)
                 }
                 return true
             }
         }
         return false
+    }
+
+    /**
+     * When a RESPONSE_AES arrives and no open sequence matches,
+     * check recently completed sequences and re-open them as AES_HANDSHAKE.
+     */
+    private fun tryMatchAesReopen(t: Telegram): Boolean {
+        val key = recentKey(t.msgCounter, t.srcAddress, t.dstAddress)
+        val recent = recentlyCompleted[key] ?: return false
+
+        if (t.timestamp - recent.open.startTime > SEQUENCE_TIMEOUT_MS) {
+            recentlyCompleted.remove(key)
+            return false
+        }
+
+        // Re-open the sequence as AES_HANDSHAKE
+        val open = recent.open
+        open.type = SequenceType.AES_HANDSHAKE
+        open.acceptsMore = true  // expect final ACK
+        open.telegramIds.add(t.id)
+        _telegramToSequence[t.id] = open.firstId
+
+        // Remove from completed, add back to open
+        recentlyCompleted.remove(key)
+        _completedSequences.remove(open.firstId)
+        openSequences.add(open)
+        return true
     }
 
     private fun matchStandard(t: Telegram, open: OpenSequence): Boolean {
@@ -111,21 +153,16 @@ class SequenceDetector {
     }
 
     private fun matchPairing(t: Telegram, open: OpenSequence): Boolean {
-        // Pairing: DEVINFO(broadcast) → CONFIG from any CCU → ACK → KEY_EXCHANGE...
-        // After first response, lock to that address pair
         if (open.telegramIds.size == 1) {
-            // Expecting CONFIG (0x01) from any source to the DEVINFO sender
             if (t.msgType == 0x01 && t.dstAddress == open.expectedDst) {
                 open.pairingSrc = t.srcAddress
                 return true
             }
         } else if (open.pairingSrc != null) {
-            // Subsequent messages between the pair
             val src = open.pairingSrc!!
             val dst = open.expectedDst
             if ((t.srcAddress == src && t.dstAddress == dst) ||
                 (t.srcAddress == dst && t.dstAddress == src)) {
-                // Close after ACK/KEY_EXCHANGE round
                 if (t.msgType == 0x02 && open.telegramIds.size >= 3) {
                     open.acceptsMore = false
                 }
@@ -136,34 +173,29 @@ class SequenceDetector {
     }
 
     private fun matchAesHandshake(t: Telegram, open: OpenSequence): Boolean {
-        val msgIndex = open.telegramIds.size  // 1-based: next expected message
-        return when (msgIndex) {
-            1 -> {
-                // Message 2: RESPONSE_AES (0x03) from dst→src
-                t.msgType == 0x03 &&
-                        t.srcAddress == open.expectedSrc &&
-                        t.dstAddress == open.expectedDst
-            }
-            2 -> {
-                // Message 3: AES response from original sender back
-                val matches = t.srcAddress == open.expectedDst &&
-                        t.dstAddress == open.expectedSrc
-                if (matches) open.acceptsMore = false
-                matches
-            }
-            else -> false
+        // AES handshake accepts messages between the address pair with matching counter
+        if (t.msgCounter != open.expectedCounter) return false
+
+        val addrA = open.expectedDst  // original sender
+        val addrB = open.expectedSrc  // original responder
+        val matchesPair = (t.srcAddress == addrA && t.dstAddress == addrB) ||
+                (t.srcAddress == addrB && t.dstAddress == addrA)
+        if (!matchesPair) return false
+
+        // RESPONSE (0x02) as final ACK closes the sequence
+        if (t.msgType == 0x02) {
+            open.acceptsMore = false
         }
+        return true
     }
 
     private fun matchConfigRead(t: Telegram, open: OpenSequence): Boolean {
-        // Accepts multiple RESPONSE (0x02) from the expected source
         if (t.srcAddress == open.expectedSrc && t.dstAddress == open.expectedDst) {
             if (t.msgType == 0x02) {
-                return true  // another config response frame
+                return true
             } else {
-                // Non-RESPONSE from same source closes the sequence
                 open.acceptsMore = false
-                completeSequence(open, isComplete = true)
+                completeSequence(open, isComplete = true, t.timestamp)
                 openSequences.remove(open)
                 return false
             }
@@ -182,14 +214,6 @@ class SequenceDetector {
             return
         }
 
-        // AES Handshake: message with AES flag (0x08) + BIDI
-        if (t.flags and 0x08 != 0 && hasBidi) {
-            startSequence(t, SequenceType.AES_HANDSHAKE,
-                expectedSrc = t.dstAddress, expectedDst = t.srcAddress,
-                acceptsMore = true)
-            return
-        }
-
         if (!hasBidi) return  // All remaining types require BIDI
 
         // Config subtypes (payload[0] determines operation)
@@ -197,14 +221,12 @@ class SequenceDetector {
             val subtype = t.payload[0].toInt() and 0xFF
             when (subtype) {
                 0x03, 0x04 -> {
-                    // Config Read (PeerListReq / ParamReq) — expects multiple responses
                     startSequence(t, SequenceType.CONFIG_READ,
                         expectedSrc = t.dstAddress, expectedDst = t.srcAddress,
                         acceptsMore = true)
                     return
                 }
                 0x01, 0x02, 0x08 -> {
-                    // Config Write (PeerAdd / PeerRemove / ParamSet) — expects single ACK
                     startSequence(t, SequenceType.CONFIG_WRITE,
                         expectedSrc = t.dstAddress, expectedDst = t.srcAddress)
                     return
@@ -266,8 +288,7 @@ class SequenceDetector {
         _telegramToSequence[t.id] = t.id
     }
 
-    private fun completeSequence(open: OpenSequence, isComplete: Boolean) {
-        // Only create a sequence if it has more than 1 telegram
+    private fun completeSequence(open: OpenSequence, isComplete: Boolean, currentTime: Long = 0L) {
         if (open.telegramIds.size > 1) {
             _completedSequences[open.firstId] = TelegramSequence(
                 id = open.firstId,
@@ -275,10 +296,18 @@ class SequenceDetector {
                 telegramIds = open.telegramIds.toList(),
                 isComplete = isComplete
             )
+            // Track recently completed for potential AES upgrade
+            val key = recentKey(open.expectedCounter, open.expectedSrc, open.expectedDst)
+            recentlyCompleted[key] = RecentSequence(open, currentTime)
         } else {
-            // Single telegram — remove the telegramToSequence mapping
             _telegramToSequence.remove(open.firstId)
         }
+    }
+
+    private fun recentKey(counter: Int, addr1: String, addr2: String): String {
+        // Sort addresses so the key is direction-independent
+        val (a, b) = if (addr1 < addr2) addr1 to addr2 else addr2 to addr1
+        return "$counter:$a:$b"
     }
 
     private fun expireOpenSequences(currentTime: Long) {
@@ -287,8 +316,12 @@ class SequenceDetector {
             val open = iter.next()
             if (currentTime - open.startTime > SEQUENCE_TIMEOUT_MS) {
                 iter.remove()
-                completeSequence(open, isComplete = false)
+                completeSequence(open, isComplete = false, currentTime)
             }
+        }
+        // Also expire recently completed
+        recentlyCompleted.entries.removeAll { (_, v) ->
+            currentTime - v.open.startTime > SEQUENCE_TIMEOUT_MS * 2
         }
     }
 

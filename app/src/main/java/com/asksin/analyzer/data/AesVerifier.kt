@@ -13,22 +13,36 @@ class AesVerifier(hexKey: String) {
 
     /**
      * Verify an AES handshake sequence.
-     * @param original The original message with AES flag
-     * @param challenge The RESPONSE_AES (0x03) containing the 6-byte challenge
-     * @param response The AES response containing the 4-byte authentication tag
-     * @return true if verified, false if failed, null if verifier is disabled
+     * The sequence is: original → challenge RESPONSE → RESPONSE_AES → final ACK
+     *
+     * Finds the RESPONSE_AES (0x03) and the preceding RESPONSE (challenge) in the
+     * telegram list. The challenge RESPONSE payload contains the 6-byte nonce, and
+     * the RESPONSE_AES payload contains the 16-byte encrypted authentication data.
+     *
+     * @param sequenceTelegrams All telegrams in the AES handshake sequence, in order
+     * @return true if verified, false if failed, null if verifier disabled or insufficient data
      */
-    fun verify(original: Telegram, challenge: Telegram, response: Telegram): Boolean? {
+    fun verify(sequenceTelegrams: List<Telegram>): Boolean? {
         val aesKey = key ?: return null
 
+        // Find the key messages in the sequence
+        val original = sequenceTelegrams.firstOrNull() ?: return null
+        val responseAes = sequenceTelegrams.find { it.msgType == 0x03 } ?: return null
+
+        // The challenge is in the RESPONSE (0x02) that comes BEFORE the RESPONSE_AES
+        val aesIdx = sequenceTelegrams.indexOf(responseAes)
+        val challenge = sequenceTelegrams.subList(0, aesIdx).findLast { it.msgType == 0x02 }
+
+        // Without the challenge RESPONSE, we can't verify
+        if (challenge == null) return null
+
         try {
-            // Extract 6-byte challenge from RESPONSE_AES payload
+            // Extract 6-byte challenge from RESPONSE payload
             if (challenge.payload.size < 6) return false
             val challengeBytes = challenge.payload.copyOfRange(0, 6)
 
-            // Extract 4-byte authentication tag from AES response payload
-            if (response.payload.size < 4) return false
-            val tag = response.payload.copyOfRange(0, 4)
+            // The RESPONSE_AES payload is the encrypted AES data (16 bytes)
+            if (responseAes.payload.size < 4) return false
 
             // Build plaintext: challenge + msgCounter + (flags & 0xBF) + msgType + src + dst + payload
             val srcBytes = hexToBytes(original.srcAddress)
@@ -57,9 +71,10 @@ class AesVerifier(hexKey: String) {
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec)
             val encrypted = cipher.doFinal(input)
 
-            // Compare last 4 bytes of ciphertext to the authentication tag
+            // Compare last 4 bytes of ciphertext to the first 4 bytes of RESPONSE_AES payload
             if (encrypted.size < 4) return false
             val computed = encrypted.copyOfRange(encrypted.size - 4, encrypted.size)
+            val tag = responseAes.payload.copyOfRange(0, 4)
             return computed.contentEquals(tag)
         } catch (_: Exception) {
             return false

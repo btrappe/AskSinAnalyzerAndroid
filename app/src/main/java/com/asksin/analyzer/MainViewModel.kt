@@ -255,10 +255,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun updateSequences() {
         val raw = sequenceDetector.allSequences()
         _sequences.value = raw.mapValues { (_, seq) ->
-            if (seq.type == SequenceType.AES_HANDSHAKE && seq.isComplete && seq.telegramIds.size >= 3 && seq.aesVerified == null) {
+            if (seq.type == SequenceType.AES_HANDSHAKE && seq.isComplete && seq.telegramIds.size >= 2 && seq.aesVerified == null) {
                 val members = seq.telegramIds.mapNotNull { id -> _telegrams.value.find { it.id == id } }
-                if (members.size >= 3) {
-                    seq.copy(aesVerified = aesVerifier.verify(members[0], members[1], members[2]))
+                if (members.size >= 2) {
+                    seq.copy(aesVerified = aesVerifier.verify(members))
                 } else seq
             } else seq
         }
