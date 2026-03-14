@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -44,6 +46,7 @@ fun MainScreen(
     onRefreshDevices: () -> Unit,
     onTelegramClick: (Telegram) -> Unit,
     onToggleGroup: (Long) -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
     onShowDeviceNames: () -> Unit = {}
@@ -140,7 +143,8 @@ fun MainScreen(
             }
         } else {
             LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {

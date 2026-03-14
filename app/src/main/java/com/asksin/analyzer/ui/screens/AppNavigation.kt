@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Router
@@ -52,6 +53,7 @@ fun AppNavigation(viewModel: MainViewModel) {
     var selectedTab by remember { mutableStateOf(Tab.TELEGRAMS) }
     var detailTelegram by remember { mutableStateOf<Telegram?>(null) }
     var showDeviceNames by remember { mutableStateOf(false) }
+    val telegramListState = rememberLazyListState()
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
@@ -156,6 +158,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                     onRefreshDevices = viewModel::refreshDevices,
                     onTelegramClick = { detailTelegram = it },
                     onToggleGroup = viewModel::toggleGroup,
+                    listState = telegramListState,
                     onExport = {
                         val ts = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date())
                         exportLauncher.launch("TelegramsXS_$ts.csv")
