@@ -216,9 +216,9 @@ class SequenceDetector {
 
         if (!hasBidi) return  // All remaining types require BIDI
 
-        // Config subtypes (payload[0] determines operation)
-        if (t.msgType == 0x01 && t.payload.isNotEmpty()) {
-            val subtype = t.payload[0].toInt() and 0xFF
+        // Config subtypes (payload[1] is subcommand, payload[0] is channel)
+        if (t.msgType == 0x01 && t.payload.size >= 2) {
+            val subtype = t.payload[1].toInt() and 0xFF
             when (subtype) {
                 0x03, 0x04 -> {
                     startSequence(t, SequenceType.CONFIG_READ,

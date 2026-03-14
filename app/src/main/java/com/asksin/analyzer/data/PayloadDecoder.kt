@@ -31,12 +31,11 @@ object PayloadDecoder {
 
     fun subtypeName(msgType: Int, payload: ByteArray): String? {
         if (payload.isEmpty()) return null
-        val sub = payload[0].toInt() and 0xFF
         return when (msgType) {
-            0x01 -> configSubtypeName(sub)
-            0x02 -> responseSubtypeName(sub)
-            0x10 -> infoSubtypeName(sub)
-            0x11 -> actionSubtypeName(sub)
+            0x01 -> if (payload.size >= 2) configSubtypeName(payload[1].toInt() and 0xFF) else null
+            0x02 -> responseSubtypeName(payload[0].toInt() and 0xFF)
+            0x10 -> infoSubtypeName(payload[0].toInt() and 0xFF)
+            0x11 -> actionSubtypeName(payload[0].toInt() and 0xFF)
             else -> null
         }
     }
@@ -50,6 +49,7 @@ object PayloadDecoder {
         0x04 -> "ParamReq"
         0x05 -> "Start"
         0x06 -> "End"
+        0x07 -> "ParamWrite"
         0x08 -> "WriteIndex"
         0x09 -> "SerialReq"
         0x0A -> "PairSerial"
@@ -58,52 +58,48 @@ object PayloadDecoder {
     }
 
     private fun decodeConfig(p: ByteArray): List<DecodedField> {
-        val sub = b(p, 0)
+        // CONFIG: payload[0]=channel, payload[1]=subcommand, payload[2+]=data
         val fields = mutableListOf<DecodedField>()
-        fields.add(DecodedField("Subtype", "${configSubtypeName(sub) ?: "Unknown"} (${h(sub)})", h(sub)))
+        fields.add(DecodedField("Channel", "${b(p, 0)}", h(b(p, 0))))
+        if (p.size < 2) return fields
+
+        val sub = b(p, 1)
+        fields.add(DecodedField("Subcommand", "${configSubtypeName(sub) ?: "Unknown"} (${h(sub)})", h(sub)))
 
         when (sub) {
             0x01, 0x02 -> { // PeerAdd / PeerRemove
-                if (p.size >= 6) {
-                    fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
-                    fields.add(DecodedField("Peer Address", addr(p, 2), hex(p, 2, 3)))
-                    fields.add(DecodedField("Peer Channel", "${b(p, 5)}", h(b(p, 5))))
+                if (p.size >= 7) {
+                    fields.add(DecodedField("Peer Address", addr(p, 3), hex(p, 3, 3)))
+                    fields.add(DecodedField("Peer Channel", "${b(p, 6)}", h(b(p, 6))))
                 }
-            }
-            0x03 -> { // PeerListReq
-                if (p.size >= 2) fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
             }
             0x04, 0x05 -> { // ParamReq / Start
-                if (p.size >= 7) {
-                    fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
-                    fields.add(DecodedField("Peer Address", addr(p, 2), hex(p, 2, 3)))
-                    fields.add(DecodedField("Peer Channel", "${b(p, 5)}", h(b(p, 5))))
-                    fields.add(DecodedField("Param List", "${b(p, 6)}", h(b(p, 6))))
+                if (p.size >= 8) {
+                    fields.add(DecodedField("Peer Address", addr(p, 3), hex(p, 3, 3)))
+                    fields.add(DecodedField("Peer Channel", "${b(p, 6)}", h(b(p, 6))))
+                    fields.add(DecodedField("Param List", "${b(p, 7)}", h(b(p, 7))))
                 }
             }
-            0x06 -> { // End
-                if (p.size >= 2) fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
+            0x07 -> { // ParamWrite
+                if (p.size >= 4) {
+                    fields.add(DecodedField("Param List", "${b(p, 2)}", h(b(p, 2))))
+                    fields.add(DecodedField("Data", hex(p, 3, p.size - 3)))
+                }
             }
             0x08 -> { // WriteIndex
-                if (p.size >= 2) {
-                    fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
-                    val pairs = mutableListOf<String>()
-                    var i = 2
-                    while (i + 1 < p.size) {
-                        pairs.add("${h(b(p, i))}=${h(b(p, i + 1))}")
-                        i += 2
-                    }
-                    if (pairs.isNotEmpty()) fields.add(DecodedField("Registers", pairs.joinToString(", ")))
+                val pairs = mutableListOf<String>()
+                var i = 2
+                while (i + 1 < p.size) {
+                    pairs.add("${h(b(p, i))}=${h(b(p, i + 1))}")
+                    i += 2
                 }
+                if (pairs.isNotEmpty()) fields.add(DecodedField("Registers", pairs.joinToString(", ")))
             }
             0x0A -> { // PairSerial
-                if (p.size >= 11) {
-                    val serial = String(p, 1, 10, Charsets.US_ASCII)
+                if (p.size >= 12) {
+                    val serial = String(p, 2, 10, Charsets.US_ASCII)
                     fields.add(DecodedField("Serial", serial))
                 }
-            }
-            0x0E -> { // StatusRequest
-                if (p.size >= 2) fields.add(DecodedField("Channel", "${b(p, 1)}", h(b(p, 1))))
             }
         }
         return fields
