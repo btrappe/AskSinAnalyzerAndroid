@@ -2,7 +2,6 @@ package com.asksin.analyzer.data
 
 import com.asksin.analyzer.model.Telegram
 import javax.crypto.Cipher
-import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 class AesVerifier(hexKey: String) {
@@ -12,70 +11,72 @@ class AesVerifier(hexKey: String) {
     val isEnabled: Boolean get() = key != null
 
     /**
-     * Verify an AES handshake sequence.
-     * The sequence is: original → challenge RESPONSE → RESPONSE_AES → final ACK
+     * Verify a BidCoS AES handshake sequence.
      *
-     * Finds the RESPONSE_AES (0x03) and the preceding RESPONSE (challenge) in the
-     * telegram list. The challenge RESPONSE payload contains the 6-byte nonce, and
-     * the RESPONSE_AES payload contains the 16-byte encrypted authentication data.
+     * Algorithm (from Homegear AesHandshake.cpp getAFrame):
+     * 1. Derive tempKey: XOR key[0..5] with challenge payload bytes [1..6]
+     * 2. AES-ECB decrypt the RESPONSE_AES 16-byte payload → pd
+     * 3. XOR pd[0..n] with original message payload[1..n+1]
+     * 4. AES-ECB decrypt pd again → pdd
+     * 5. Verify pdd[6..15] matches original message fields
      *
      * @param sequenceTelegrams All telegrams in the AES handshake sequence, in order
-     * @return true if verified, false if failed, null if verifier disabled or insufficient data
+     * @return true if verified, false if failed, null if disabled or insufficient data
      */
     fun verify(sequenceTelegrams: List<Telegram>): Boolean? {
         val aesKey = key ?: return null
 
-        // Find the key messages in the sequence
         val original = sequenceTelegrams.firstOrNull() ?: return null
         val responseAes = sequenceTelegrams.find { it.msgType == 0x03 } ?: return null
 
         // The challenge is in the RESPONSE (0x02) that comes BEFORE the RESPONSE_AES
         val aesIdx = sequenceTelegrams.indexOf(responseAes)
         val challenge = sequenceTelegrams.subList(0, aesIdx).findLast { it.msgType == 0x02 }
+            ?: return null  // can't verify without the challenge
 
-        // Without the challenge RESPONSE, we can't verify
-        if (challenge == null) return null
+        if (challenge.payload.size < 7) return null  // need at least 7 bytes (index 1..6)
+        if (responseAes.payload.size != 16) return false
 
         try {
-            // Extract 6-byte challenge from RESPONSE payload
-            if (challenge.payload.size < 6) return false
-            val challengeBytes = challenge.payload.copyOfRange(0, 6)
+            // Step 1: Derive temp key — XOR key[0..5] with challenge.payload[1..6]
+            val tempKey = aesKey.copyOf()
+            for (j in 0..5) {
+                tempKey[j] = (aesKey[j].toInt() xor (challenge.payload[j + 1].toInt() and 0xFF)).toByte()
+            }
 
-            // The RESPONSE_AES payload is the encrypted AES data (16 bytes)
-            if (responseAes.payload.size < 4) return false
+            val keySpec = SecretKeySpec(tempKey, "AES")
+            val cipher = Cipher.getInstance("AES/ECB/NoPadding")
 
-            // Build plaintext: challenge + msgCounter + (flags & 0xBF) + msgType + src + dst + payload
+            // Step 2: First AES-ECB decrypt of RESPONSE_AES payload
+            cipher.init(Cipher.DECRYPT_MODE, keySpec)
+            val pd = cipher.doFinal(responseAes.payload)
+
+            // Step 3: XOR pd with original message payload starting at index 1
+            for (j in 1 until original.payload.size) {
+                if (j - 1 >= pd.size) break
+                pd[j - 1] = (pd[j - 1].toInt() xor (original.payload[j].toInt() and 0xFF)).toByte()
+            }
+
+            // Step 4: Second AES-ECB decrypt
+            cipher.init(Cipher.DECRYPT_MODE, keySpec)
+            val pdd = cipher.doFinal(pd)
+
+            // Step 5: Verify pdd[6..15] against original message fields
             val srcBytes = hexToBytes(original.srcAddress)
             val dstBytes = hexToBytes(original.dstAddress)
 
-            val plaintext = mutableListOf<Byte>()
-            plaintext.addAll(challengeBytes.toList())
-            plaintext.add((original.msgCounter and 0xFF).toByte())
-            plaintext.add((original.flags and 0xBF).toByte())  // clear RPTED bit
-            plaintext.add((original.msgType and 0xFF).toByte())
-            plaintext.addAll(srcBytes.toList())
-            plaintext.addAll(dstBytes.toList())
-            plaintext.addAll(original.payload.toList())
+            if (pdd[6].toInt() and 0xFF != original.msgCounter and 0xFF) return false
+            if (pdd[7].toInt() and 0xBF != original.flags and 0xBF) return false
+            if (pdd[8].toInt() and 0xFF != original.msgType and 0xFF) return false
+            if (pdd[9] != srcBytes[0]) return false
+            if (pdd[10] != srcBytes[1]) return false
+            if (pdd[11] != srcBytes[2]) return false
+            if (pdd[12] != dstBytes[0]) return false
+            if (pdd[13] != dstBytes[1]) return false
+            if (pdd[14] != dstBytes[2]) return false
+            if (original.payload.isNotEmpty() && pdd[15].toInt() and 0xFF != original.payload[0].toInt() and 0xFF) return false
 
-            // Zero-pad to 16-byte block boundary
-            val padded = plaintext.toByteArray()
-            val blockSize = 16
-            val paddedLen = ((padded.size + blockSize - 1) / blockSize) * blockSize
-            val input = ByteArray(paddedLen)
-            padded.copyInto(input)
-
-            // AES-128-CBC encrypt with IV=0
-            val cipher = Cipher.getInstance("AES/CBC/NoPadding")
-            val keySpec = SecretKeySpec(aesKey, "AES")
-            val ivSpec = IvParameterSpec(ByteArray(16))
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec)
-            val encrypted = cipher.doFinal(input)
-
-            // Compare last 4 bytes of ciphertext to the first 4 bytes of RESPONSE_AES payload
-            if (encrypted.size < 4) return false
-            val computed = encrypted.copyOfRange(encrypted.size - 4, encrypted.size)
-            val tag = responseAes.payload.copyOfRange(0, 4)
-            return computed.contentEquals(tag)
+            return true
         } catch (_: Exception) {
             return false
         }
