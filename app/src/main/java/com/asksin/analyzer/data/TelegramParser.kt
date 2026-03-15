@@ -6,17 +6,19 @@ import kotlin.math.roundToInt
 /**
  * Parses the serial output of the AskSinSniffer328P sketch.
  *
- * The sniffer outputs two types of lines:
+ * Supports two serial output formats:
  *
- * 1. Telegram line:
- *    A;<millis>;<rssi_raw>;<lqi_raw>;<hex_data_without_spaces>
- *    e.g.: A;12345;-74;42;0E112A10AABBCCDDEEFF010203
+ * Format 1 (AskSinSniffer328P native — used by AskSinAnalyzerXS):
+ *   Telegram: :RSSILEN CNT FLAGS TYPE SRC DST PAYLOAD;
+ *   Noise:    :RSSI;  (just 2 hex chars = RSSI only)
+ *   e.g.:     :430D2FA610379D9C1741280601CF00;
  *
- * 2. Noise / RSSI line:
- *    N;<millis>;<rssi_raw>
- *    e.g.: N;12346;-85
+ * Format 2 (alternative firmware):
+ *   Telegram: A;<millis>;<rssi_raw>;<lqi_raw>;<hex_data>
+ *   Noise:    N;<millis>;<rssi_raw>
+ *   e.g.:     A;12345;-74;42;0E112A10AABBCCDDEEFF010203
  *
- * The hex_data field is the raw BidCoS packet:
+ * The BidCoS packet structure:
  *   [LEN][CNT][FLAGS][TYPE][SRC0][SRC1][SRC2][DST0][DST1][DST2][PAYLOAD...]
  */
     data class DecodedFrame(
@@ -31,6 +33,11 @@ import kotlin.math.roundToInt
 
 object TelegramParser {
 
+    // Format 1: AskSinSniffer328P native ":hexdata;"
+    private val SNIFFER_REGEX = Regex(
+        """^:([0-9A-Fa-f]+);$"""
+    )
+    // Format 2: alternative "A;millis;rssi;lqi;hexdata"
     private val TELEGRAM_REGEX = Regex(
         """^A;(\d+);(-?\d+);(\d+);([0-9A-Fa-f ]+)$"""
     )
@@ -68,6 +75,41 @@ object TelegramParser {
     fun parse(line: String): ParseResult {
         val trimmed = line.trim()
 
+        // Format 1: AskSinSniffer328P native ":hexdata;"
+        SNIFFER_REGEX.matchEntire(trimmed)?.let { match ->
+            val hex = match.groupValues[1]
+
+            // Short message (2 hex chars = 1 byte) → RSSI noise sample
+            if (hex.length <= 2) {
+                val rssiRaw = hex.toIntOrNull(16) ?: return ParseResult.Invalid
+                return ParseResult.NoiseResult(System.currentTimeMillis(), convertRssi(rssiRaw))
+            }
+
+            // Telegram: first byte is RSSI, rest is BidCoS frame
+            val allBytes = hexToBytes(hex) ?: return ParseResult.Invalid
+            if (allBytes.size < 11) return ParseResult.Invalid  // RSSI(1) + min BidCoS(10)
+
+            val rssiRaw = allBytes[0].toInt() and 0xFF
+            val rawBytes = allBytes.copyOfRange(1, allBytes.size)
+            val frame = decodeBidCosFrame(rawBytes) ?: return ParseResult.Invalid
+
+            val telegram = Telegram(
+                timestamp = System.currentTimeMillis(),
+                rssi = convertRssi(rssiRaw),
+                lqi = 0,
+                rawBytes = rawBytes,
+                msgLen = frame.msgLen,
+                msgCounter = frame.msgCounter,
+                flags = frame.flags,
+                msgType = frame.msgType,
+                srcAddress = frame.srcAddress,
+                dstAddress = frame.dstAddress,
+                payload = frame.payload
+            )
+            return ParseResult.TelegramResult(telegram)
+        }
+
+        // Format 2: alternative "A;millis;rssi;lqi;hexdata"
         TELEGRAM_REGEX.matchEntire(trimmed)?.let { match ->
             val millis = match.groupValues[1].toLongOrNull() ?: return ParseResult.Invalid
             val rssiRaw = match.groupValues[2].toIntOrNull() ?: return ParseResult.Invalid
