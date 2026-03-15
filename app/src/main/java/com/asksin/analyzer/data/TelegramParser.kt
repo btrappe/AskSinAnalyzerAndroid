@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 object TelegramParser {
 
     private val TELEGRAM_REGEX = Regex(
-        """^A;(\d+);(-?\d+);(\d+);([0-9A-Fa-f]+)$"""
+        """^A;(\d+);(-?\d+);(\d+);([0-9A-Fa-f ]+)$"""
     )
     private val NOISE_REGEX = Regex(
         """^N;(\d+);(-?\d+)$"""
@@ -72,7 +72,7 @@ object TelegramParser {
             val millis = match.groupValues[1].toLongOrNull() ?: return ParseResult.Invalid
             val rssiRaw = match.groupValues[2].toIntOrNull() ?: return ParseResult.Invalid
             val lqiRaw = match.groupValues[3].toIntOrNull() ?: return ParseResult.Invalid
-            val hex = match.groupValues[4]
+            val hex = match.groupValues[4].replace(" ", "")
 
             val bytes = hexToBytes(hex) ?: return ParseResult.Invalid
             val frame = decodeBidCosFrame(bytes) ?: return ParseResult.Invalid
