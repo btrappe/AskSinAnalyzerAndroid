@@ -13,7 +13,10 @@ module, connected via USB OTG.
 | USB Serial | Auto-detects FTDI, CH340, CP210x, PL2303 adapters |
 | Telegram list | Live scrolling list, newest-first, colour-coded |
 | BidCoS decoder | Parses length, counter, flags, type, SRC/DST addresses, payload |
-| Telegram detail | Full hex dump with byte-map overlay |
+| Payload decoding | Human-readable decoding of CONFIG, RESPONSE, INFO, ACTION, event subtypes |
+| Telegram detail | Full hex dump with byte-map overlay + decoded payload fields |
+| Sequence grouping | Detects and groups multi-message BidCoS sequences (collapsible) |
+| AES verification | Verifies AES handshake signatures using configurable default key |
 | RSSI bar | Colour-coded signal strength per telegram |
 | LQI indicator | Link quality from CC1101 status bytes |
 | RSSI Noise chart | Real-time sparkline of ambient noise floor |
@@ -85,7 +88,7 @@ N;123460;-92
 ```
 Byte  0:    LEN     – total frame length
 Byte  1:    CNT     – message counter
-Byte  2:    FLAGS   – WAKEUP, BCAST, BURST, BIDI, RPTED, RPTEN
+Byte  2:    FLAGS   – WAKEUP, WAKEMEUP, BCAST, AES, BURST, BIDI, RPTED, RPTEN
 Byte  3:    TYPE    – message type (DeviceInfo, Set, Get, AckStatus, …)
 Bytes 4-6:  SRC     – source device address
 Bytes 7-9:  DST     – destination address (000000 = broadcast)
@@ -102,9 +105,14 @@ app/src/main/java/com/asksin/analyzer/
 ├── MainViewModel.kt             State + business logic
 ├── model/
 │   ├── Telegram.kt              Data model (Telegram, DeviceStats, NoiseSample)
-│   └── DeviceInfo.kt            Device name/serial/type mapping
+│   ├── DeviceInfo.kt            Device name/serial/type mapping
+│   ├── TelegramSequence.kt      Sequence types and grouping model
+│   └── TelegramListItem.kt      Sealed class for grouped list items
 ├── data/
 │   ├── TelegramParser.kt        Parses sniffer serial lines + BidCoS frame decoding
+│   ├── PayloadDecoder.kt        Human-readable payload field decoding
+│   ├── SequenceDetector.kt      Multi-message sequence detection engine
+│   ├── AesVerifier.kt           BidCoS AES handshake signature verification
 │   ├── CsvExporter.kt           CSV export/import (AskSinAnalyzerXS format)
 │   ├── DeviceRegistry.kt        Persistent device name store (SharedPreferences)
 │   └── CcuClient.kt             CCU2 query (XML-API, ReGaHSS, XML-RPC)
@@ -194,9 +202,14 @@ In your repo go to **Settings > Secrets and variables > Actions** and add:
 | `ONEDRIVE_CLIENT_ID` | Application (client) ID from step 1 |
 | `ONEDRIVE_CLIENT_SECRET` | Client secret value from step 2 |
 | `ONEDRIVE_REFRESH_TOKEN` | Refresh token from step 3 |
+| `BIDCOS_AES_DEFAULT_KEY` | *(optional)* 32-hex-char BidCoS AES key for signature verification |
 
 The APK will appear in `Documents/AskSinAnalyzer/` on your OneDrive after each
 push to `main`.
+
+If `BIDCOS_AES_DEFAULT_KEY` is set, the app will verify AES handshake signatures
+and show green "AES OK" badges. Without it, AES-flagged telegrams show a neutral
+gray "AES" badge.
 
 ---
 

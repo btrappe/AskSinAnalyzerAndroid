@@ -49,7 +49,7 @@ fun ConnectionIndicator(connected: Boolean, label: String, modifier: Modifier = 
                 .background(dotColor)
         )
         Spacer(Modifier.width(6.dp))
-        Text(label, color = TextSecondary, fontSize = 12.sp)
+        Text(label, color = TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

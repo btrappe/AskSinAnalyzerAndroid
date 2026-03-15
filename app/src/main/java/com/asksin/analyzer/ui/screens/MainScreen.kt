@@ -207,7 +207,7 @@ private fun TopBar(
 ) {
     val isConnected = connectionState is ConnectionState.Connected
     val label = when (connectionState) {
-        is ConnectionState.Connected -> "${connectionState.deviceName} (${connectionState.driverName})"
+        is ConnectionState.Connected -> connectionState.driverName
         is ConnectionState.Connecting -> "Connecting…"
         is ConnectionState.Error -> connectionState.message
         else -> "Disconnected"
