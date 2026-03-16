@@ -37,9 +37,11 @@ fun MainScreen(
     noiseSamples: List<NoiseSample>,
     availableDevices: List<UsbSerialDriver>,
     filter: String,
+    hideHmIp: Boolean = false,
     nameResolver: (String) -> String? = { null },
     aesResolver: (Long) -> Boolean? = { null },
     onFilterChange: (String) -> Unit,
+    onHideHmIpChange: (Boolean) -> Unit = {},
     onConnect: (UsbSerialDriver) -> Unit,
     onDisconnect: () -> Unit,
     onClear: () -> Unit,
@@ -115,7 +117,7 @@ fun MainScreen(
             textStyle = LocalTextStyle.current.copy(fontSize = 12.sp, fontFamily = MonoFont)
         )
 
-        // ── Telegram count ───────────────────────────────────────────────────
+        // ── Telegram count + HmIP filter ────────────────────────────────────
         Row(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -123,6 +125,18 @@ fun MainScreen(
             val seqCount = groupedItems.count { it is TelegramListItem.GroupHeader }
             val countText = if (seqCount > 0) "${telegrams.size} telegrams ($seqCount sequences)" else "${telegrams.size} telegrams"
             Text(countText, color = TextMuted, fontSize = 10.sp)
+            Spacer(Modifier.weight(1f))
+            Text("Hide HmIP", color = TextMuted, fontSize = 10.sp)
+            Checkbox(
+                checked = hideHmIp,
+                onCheckedChange = onHideHmIpChange,
+                modifier = Modifier.size(28.dp),
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Accent,
+                    uncheckedColor = TextMuted,
+                    checkmarkColor = Background
+                )
+            )
         }
 
         // ── Telegram list ────────────────────────────────────────────────────

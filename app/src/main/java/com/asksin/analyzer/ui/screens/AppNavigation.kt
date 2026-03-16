@@ -45,6 +45,7 @@ fun AppNavigation(viewModel: MainViewModel) {
     val deviceStats by viewModel.deviceStats.collectAsState()
     val availableDevices by viewModel.availableDevices.collectAsState()
     val filter by viewModel.filter.collectAsState()
+    val hideHmIp by viewModel.hideHmIp.collectAsState()
 
     val deviceNames by viewModel.deviceNames.collectAsState()
     val ccuFetchState by viewModel.ccuFetchState.collectAsState()
@@ -149,9 +150,11 @@ fun AppNavigation(viewModel: MainViewModel) {
                     noiseSamples = noiseSamples,
                     availableDevices = availableDevices,
                     filter = filter,
+                    hideHmIp = hideHmIp,
                     nameResolver = nameResolver,
                     aesResolver = viewModel::getAesVerified,
                     onFilterChange = viewModel::setFilter,
+                    onHideHmIpChange = viewModel::setHideHmIp,
                     onConnect = viewModel::connect,
                     onDisconnect = viewModel::disconnect,
                     onClear = viewModel::clearTelegrams,

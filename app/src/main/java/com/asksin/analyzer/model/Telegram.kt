@@ -59,6 +59,9 @@ data class Telegram(
     val hasAes: Boolean
         get() = flags and 0x08 != 0
 
+    val isHmIp: Boolean
+        get() = MessageTypes.isHmIp(msgType)
+
     val rssiBar: Float
         get() = ((rssi + 100).coerceIn(0, 70) / 70f)  // normalise -100…-30 → 0…1
 
@@ -93,8 +96,12 @@ object MessageTypes {
     )
     fun name(type: Int): String {
         val hex = "0x%02X".format(type)
-        return types[type]?.let { "$it ($hex)" } ?: hex
+        return types[type]?.let { "$it ($hex)" }
+            ?: if (type >= 0x80) "HMIP ($hex)"
+            else hex
     }
+
+    fun isHmIp(type: Int): Boolean = type >= 0x80 && type !in types
 }
 
 /**

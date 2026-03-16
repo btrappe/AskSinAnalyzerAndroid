@@ -57,6 +57,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _filter = MutableStateFlow("")
     val filter: StateFlow<String> = _filter.asStateFlow()
 
+    private val _hideHmIp = MutableStateFlow(false)
+    val hideHmIp: StateFlow<Boolean> = _hideHmIp.asStateFlow()
+
+    fun setHideHmIp(hide: Boolean) { _hideHmIp.value = hide }
+
     // ── Device name resolution ──────────────────────────────────────────────
 
     private val _deviceNames = MutableStateFlow<Map<String, DeviceInfo>>(emptyMap())
@@ -173,9 +178,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Filtering (includes device name matching) ───────────────────────────
 
-    val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter, _deviceNames) { list, f, names ->
+    val filteredTelegrams: StateFlow<List<Telegram>> = combine(_telegrams, _filter, _deviceNames, _hideHmIp) { list, f, names, hideHmIp ->
+            var result = list
+            if (hideHmIp) result = result.filter { !it.isHmIp }
             val q = f.trim().uppercase()
-            if (q.isEmpty()) list else list.filter {
+            if (q.isNotEmpty()) result = result.filter {
                 it.srcAddress.contains(q) ||
                 it.dstAddress.contains(q) ||
                 it.msgTypeName.uppercase().contains(q) ||
@@ -183,6 +190,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 (names[it.srcAddress]?.name?.uppercase()?.contains(q) == true) ||
                 (names[it.dstAddress]?.name?.uppercase()?.contains(q) == true)
             }
+            result
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
