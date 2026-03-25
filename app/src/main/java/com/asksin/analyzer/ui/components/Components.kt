@@ -307,6 +307,7 @@ fun SequenceGroupHeader(
     telegrams: List<Telegram>,
     expanded: Boolean,
     nameResolver: (String) -> String? = { null },
+    onAddressClick: (String) -> Unit = {},
     onToggle: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -355,11 +356,11 @@ fun SequenceGroupHeader(
 
             // Address row
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AddressChip(first.srcAddress, true, nameResolver(first.srcAddress))
+                AddressChip(first.srcAddress, true, nameResolver(first.srcAddress)) { onAddressClick(first.srcAddress) }
                 Spacer(Modifier.width(6.dp))
                 Text("→", color = TextMuted, fontSize = 10.sp)
                 Spacer(Modifier.width(6.dp))
-                AddressChip(first.dstAddress, false, nameResolver(first.dstAddress))
+                AddressChip(first.dstAddress, false, nameResolver(first.dstAddress)) { onAddressClick(first.dstAddress) }
                 Spacer(Modifier.weight(1f))
                 Text(
                     "${first.rssi} dBm",
@@ -385,6 +386,7 @@ fun SequenceGroupMember(
     sequence: TelegramSequence,
     isLast: Boolean,
     nameResolver: (String) -> String? = { null },
+    onAddressClick: (String) -> Unit = {},
     onClick: () -> Unit
 ) {
     val color = sequenceColor(sequence.type)
@@ -444,11 +446,11 @@ fun SequenceGroupMember(
                 }
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AddressChip(telegram.srcAddress, true, nameResolver(telegram.srcAddress))
+                    AddressChip(telegram.srcAddress, true, nameResolver(telegram.srcAddress)) { onAddressClick(telegram.srcAddress) }
                     Spacer(Modifier.width(4.dp))
                     Text("→", color = TextMuted, fontSize = 9.sp)
                     Spacer(Modifier.width(4.dp))
-                    AddressChip(telegram.dstAddress, false, nameResolver(telegram.dstAddress))
+                    AddressChip(telegram.dstAddress, false, nameResolver(telegram.dstAddress)) { onAddressClick(telegram.dstAddress) }
                     Spacer(Modifier.weight(1f))
                     Text("${telegram.rssi} dBm", color = TextMuted, fontSize = 9.sp, fontFamily = MonoFont)
                 }

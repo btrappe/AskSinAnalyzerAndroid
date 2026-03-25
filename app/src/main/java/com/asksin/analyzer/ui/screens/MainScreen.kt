@@ -178,6 +178,7 @@ fun MainScreen(
                                 telegrams = item.telegrams,
                                 expanded = item.expanded,
                                 nameResolver = nameResolver,
+                                onAddressClick = onFilterChange,
                                 onToggle = { onToggleGroup(item.sequence.id) },
                                 onClick = { onTelegramClick(item.telegrams.first()) }
                             )
@@ -187,6 +188,7 @@ fun MainScreen(
                                 sequence = item.sequence,
                                 isLast = item.isLast,
                                 nameResolver = nameResolver,
+                                onAddressClick = onFilterChange,
                                 onClick = { onTelegramClick(item.telegram) }
                             )
                     }
