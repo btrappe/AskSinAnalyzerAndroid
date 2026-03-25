@@ -219,10 +219,12 @@ fun AddressChip(address: String, isSource: Boolean, deviceName: String? = null, 
     val fg = if (isSource) Accent else AccentDim
     Box(
         Modifier
+            .heightIn(min = 32.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         if (deviceName != null) {
             Column {
